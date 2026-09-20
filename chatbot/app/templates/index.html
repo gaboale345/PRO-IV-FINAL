@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente Virtual IA</title>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Paleta: Negro, Azul suave y Rojo suave (no tan fuertes) */
+            --bg-primary: #090a0f;
+            --bg-card: rgba(13, 15, 22, 0.88);
+            --bg-card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f1f5f9;
+            --text-muted: #8b95a5;
+
+            /* Gradiente principal sobrio */
+            --accent-gradient: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #991b1b 100%);
+
+            /* Mensaje del usuario: azul oscuro refinado */
+            --user-bubble: linear-gradient(135deg, #172554 0%, #1e3a8a 100%);
+            --user-border: rgba(59, 130, 246, 0.25);
+
+            /* Mensaje del bot: negro carbón con borde azul tenue */
+            --bot-bubble: rgba(17, 20, 29, 0.9);
+            --bot-border: rgba(30, 58, 138, 0.35);
+
+            /* Acentos específicos */
+            --blue-soft: #3b82f6;
+            --blue-subtle: rgba(59, 130, 246, 0.12);
+            --red-soft: #b91c1c;
+            --red-subtle: rgba(185, 28, 28, 0.12);
+
+            --input-bg: rgba(10, 12, 18, 0.75);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-primary);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.18) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(153, 27, 27, 0.15) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.45) 0px, transparent 65%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        .chat-app-container {
+            width: 100%;
+            max-width: 1050px;
+            height: 94vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Encabezado Superior */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 28px;
+            border-bottom: 1px solid var(--bg-card-border);
+            background: rgba(10, 12, 18, 0.6);
+        }
+
+        .brand-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #991b1b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 20px;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(30, 58, 138, 0.35);
+        }
+
+        .brand-text h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: #60a5fa;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 3px 8px;
+            border-radius: 20px;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            background-color: #3b82f6;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+            animation: pulseDot 2s infinite;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .info-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+
+        .info-pill strong {
+            color: #cbd5e1;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(30, 58, 138, 0.25);
+            border-color: rgba(59, 130, 246, 0.35);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: rgba(153, 27, 27, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-danger:hover {
+            background: rgba(153, 27, 27, 0.45);
+            border-color: #ef4444;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* Selector de Rol / Personalidad (Funcionalidad Adicional) */
+        .role-selector-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 5px 12px;
+            border-radius: 12px;
+        }
+
+        .role-label {
+            font-size: 0.75rem;
+            color: #93c5fd;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .role-select {
+            background: #0f172a;
+            color: #f8fafc;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .role-select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+        }
+
+        .role-select option {
+            background: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* Drawer Footer y Acciones de Historial */
+        .drawer-footer {
+            padding-top: 16px;
+            border-top: 1px solid var(--bg-card-border);
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .drawer-footer-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .drawer-footer-row .btn-secondary,
+        .drawer-footer-row .btn-danger {
+            flex: 1;
+            justify-content: center;
+            padding: 8px 6px;
+            font-size: 0.76rem;
+        }
+
+        /* Toast notification */
+        .toast-banner {
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 58, 138, 0.92);
+            border: 1px solid rgba(96, 165, 250, 0.45);
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            z-index: 150;
+            display: none;
+            pointer-events: none;
+            animation: fadeIn 0.25s ease;
+        }
+
+        /* Área de Mensajes del Chat */
+        #chatbox {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            scroll-behavior: smooth;
+        }
+
+        #chatbox::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chatbox::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #chatbox::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        /* Bienvenida */
+        .welcome-hero {
+            margin: auto;
+            text-align: center;
+            max-width: 520px;
+            padding: 30px 20px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        .welcome-icon {
+            font-size: 42px;
+            margin-bottom: 12px;
+            display: inline-block;
+        }
+
+        .welcome-hero h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 40%, #f87171 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-hero p {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+
+        .suggestions-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .suggestion-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .suggestion-card:hover {
+            background: rgba(30, 58, 138, 0.2);
+            border-color: rgba(153, 27, 27, 0.35);
+            color: #fff;
+            transform: translateX(4px);
+        }
+
+        /* Filas de Mensajes */
+        .message-row {
+            display: flex;
+            gap: 12px;
+            max-width: 82%;
+            animation: messageAppear 0.35s ease-out forwards;
+        }
+
+        @keyframes messageAppear {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-row.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-row.bot {
+            align-self: flex-start;
+        }
+
+        .avatar-small {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .user .avatar-small {
+            background: #1e3a8a;
+            color: #bfdbfe;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .bot .avatar-small {
+            background: linear-gradient(135deg, #1e3a8a 0%, #991b1b 100%);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(30, 58, 138, 0.35);
+            border: 1px solid rgba(185, 28, 28, 0.3);
+        }
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sender-name {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .user .sender-name {
+            text-align: right;
+        }
+
+        .bubble {
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 0.93rem;
+            line-height: 1.55;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .user .bubble {
+            background: var(--user-bubble);
+            color: #f8fafc;
+            border: 1px solid var(--user-border);
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 15px rgba(23, 37, 84, 0.35);
+        }
+
+        .bot .bubble {
+            background: var(--bot-bubble);
+            border: 1px solid var(--bot-border);
+            color: #f1f5f9;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .message-time {
+            font-size: 0.68rem;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .user .message-time {
+            text-align: right;
+        }
+
+        /* Indicador de escritura animado */
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            margin-left: 46px;
+            background: var(--bot-bubble);
+            border: 1px solid var(--bot-border);
+            padding: 12px 18px;
+            border-radius: 16px;
+            border-bottom-left-radius: 4px;
+        }
+
+        .dots {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dots span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .dots span:nth-child(1) {
+            background-color: #3b82f6;
+            animation-delay: -0.32s;
+        }
+        .dots span:nth-child(2) {
+            background-color: #991b1b;
+            animation-delay: -0.16s;
+        }
+        .dots span:nth-child(3) {
+            background-color: #60a5fa;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Barra Inferior de Entrada */
+        footer {
+            padding: 16px 24px 22px 24px;
+            border-top: 1px solid var(--bg-card-border);
+            background: rgba(10, 12, 18, 0.65);
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--input-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 6px 8px 6px 18px;
+            transition: all 0.25s ease;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+            background: rgba(10, 12, 18, 0.95);
+        }
+
+        #user_input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 0.95rem;
+            font-family: inherit;
+            padding: 8px 0;
+        }
+
+        #user_input::placeholder {
+            color: #64748b;
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, #1d4ed8 0%, #991b1b 100%);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.35);
+        }
+
+        .btn-send:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(153, 27, 27, 0.4);
+        }
+
+        .btn-send:active {
+            transform: scale(0.96);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .input-hint {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.73rem;
+            color: #64748b;
+            margin-top: 8px;
+            padding: 0 6px;
+        }
+
+        /* Panel Deslizante de Historial */
+        .history-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            justify-content: flex-end;
+            transition: all 0.3s ease;
+        }
+
+        .history-drawer {
+            width: 420px;
+            max-width: 90%;
+            height: 100%;
+            background: #0a0c12;
+            border-left: 1px solid rgba(59, 130, 246, 0.15);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.7);
+            animation: slideLeft 0.3s ease;
+        }
+
+        @keyframes slideLeft {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--bg-card-border);
+            margin-bottom: 16px;
+        }
+
+        .drawer-header h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+
+        .btn-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .btn-close:hover {
+            color: #fff;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 4px;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .history-item .hist-time {
+            font-size: 0.68rem;
+            color: #64748b;
+        }
+
+        .history-item .hist-q {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #93c5fd;
+        }
+
+        .history-item .hist-a {
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            line-height: 1.4;
+            max-height: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @media (max-width: 768px) {
+            .chat-app-container {
+                height: 100vh;
+                border-radius: 0;
+                border: none;
+            }
+            .header-meta {
+                display: none;
+            }
+            #chatbox {
+                padding: 16px;
+            }
+            .message-row {
+                max-width: 92%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="chat-app-container">
+        <!-- Encabezado superior -->
+        <header>
+            <div class="brand-info">
+                <div class="brand-avatar">IA</div>
+                <div class="brand-text">
+                    <h1>Asistente Virtual</h1>
+                    <span class="status-badge">
+                        <span class="status-dot"></span> En línea
+                    </span>
+                </div>
+            </div>
+
+            <!-- Selector de Rol / Personalidad (Funcionalidad Adicional) -->
+            <div class="role-selector-container">
+                <label for="role-select" class="role-label">🎭 Rol:</label>
+                <select id="role-select" class="role-select" onchange="cambiarRol()" title="Selecciona la personalidad del modelo">
+                    {% for rol in roles %}
+                        <option value="{{ rol.id }}" title="{{ rol.descripcion }}">{{ rol.nombre }}</option>
+                    {% empty %}
+                        <option value="general">🤖 Asistente General</option>
+                        <option value="programador">💻 Programador Python</option>
+                        <option value="tutor">🎓 Tutor Académico</option>
+                        <option value="creativo">✍️ Redactor Creativo</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="header-meta">
+                <div class="info-pill" title="Dirección IP del servidor">
+                    <span>🌐 Red:</span>
+                    <strong>{{ ip_red|default:"172.25.4.247" }}:8000</strong>
+                </div>
+                <div class="info-pill" title="Modelo Ollama activo">
+                    <span>🧠 Modelo:</span>
+                    <strong>{{ modelo_actual|default:"qwen2.5:1.5b" }}</strong>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button type="button" class="btn-secondary" id="btn-export-chat" onclick="exportarHistorial('md')" title="Exportar historial completo a Markdown">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Exportar
+                </button>
+                <button type="button" class="btn-secondary" id="btn-toggle-history" onclick="toggleHistory(true)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    Historial
+                </button>
+                <button type="button" class="btn-secondary" id="btn-clear-chat" onclick="limpiarChat()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Limpiar
+                </button>
+            </div>
+        </header>
+
+        <!-- Contenedor principal de mensajes -->
+        <main id="chatbox">
+            <div class="welcome-hero" id="welcome-message">
+                <div class="welcome-icon">💬</div>
+                <h2>¿En qué te puedo ayudar hoy?</h2>
+                <p>Tu asistente inteligente impulsado por <strong>Ollama</strong> y <strong>Django</strong> está listo para responder consultas en español.</p>
+                
+                <div class="suggestions-grid">
+                    <div class="suggestion-card" onclick="usarSugerencia('¿Qué es y cómo funciona una subred /25 como 172.25.4.128/25?')">
+                        ⚡ "¿Qué es y cómo funciona la subred 172.25.4.128/25?"
+                    </div>
+                    <div class="suggestion-card" onclick="usarSugerencia('Explícame brevemente cómo funciona este chatbot con Django y Ollama.')">
+                        🤖 "Explícame cómo funciona este chatbot con Django y Ollama"
+                    </div>
+                    <div class="suggestion-card" onclick="usarSugerencia('Escribe un código Python para calcular los números primos con comentarios didácticos.')">
+                        💻 "Código Python para calcular números primos"
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Indicador de escritura animado -->
+        <div class="typing-indicator" id="typing-indicator">
+            <div class="dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <!-- Barra inferior de entrada -->
+        <footer>
+            <div class="input-wrapper">
+                <input 
+                    type="text" 
+                    id="user_input" 
+                    placeholder="Escribe tu mensaje en español aquí..." 
+                    autocomplete="off"
+                    autofocus
+                    onkeydown="manejarTecla(event)"
+                >
+                <button type="button" class="btn-send" id="send-button" onclick="sendMessage()" title="Enviar mensaje">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+            <div class="input-hint">
+                <span>Presiona <strong>Enter</strong> para enviar</span>
+                <span>Conexión de red: <strong>{{ ip_red|default:"172.25.4.247" }}</strong></span>
+            </div>
+        </footer>
+
+        <!-- Panel lateral deslizante de historial -->
+        <div class="history-overlay" id="history-modal" onclick="cerrarSiFondo(event)">
+            <div class="history-drawer">
+                <div class="drawer-header">
+                    <h3>Historial de Conversaciones</h3>
+                    <button class="btn-close" onclick="toggleHistory(false)">&times;</button>
+                </div>
+                <div class="history-list" id="history-items">
+                    <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Cargando historial...</p>
+                </div>
+
+                <!-- Opciones de exportación y gestión (Funcionalidades Adicionales) -->
+                <div class="drawer-footer">
+                    <div style="font-size: 0.73rem; color: var(--text-muted); margin-bottom: 2px;">Exportar historial descargable:</div>
+                    <div class="drawer-footer-row">
+                        <button type="button" class="btn-secondary" onclick="exportarHistorial('md')" title="Descargar como archivo Markdown (.md)">
+                            📥 Markdown
+                        </button>
+                        <button type="button" class="btn-secondary" onclick="exportarHistorial('txt')" title="Descargar como archivo de texto plano (.txt)">
+                            📄 TXT
+                        </button>
+                        <button type="button" class="btn-secondary" onclick="exportarHistorial('json')" title="Descargar como JSON estructurado">
+                            ⚙️ JSON
+                        </button>
+                    </div>
+                    <button type="button" class="btn-danger" onclick="vaciarHistorialBD()" title="Eliminar definitivamente todas las conversaciones de la base de datos">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Vaciar Historial en BD
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatbox = document.getElementById("chatbox");
+        const userInput = document.getElementById("user_input");
+        const sendBtn = document.getElementById("send-button");
+        const typingIndicator = document.getElementById("typing-indicator");
+        const welcomeHero = document.getElementById("welcome-message");
+        const historyModal = document.getElementById("history-modal");
+        const historyItems = document.getElementById("history-items");
+
+        function obtenerHoraActual() {
+            const now = new Date();
+            return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function manejarTecla(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function usarSugerencia(texto) {
+            userInput.value = texto;
+            sendMessage();
+        }
+
+        function autoScroll() {
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function limpiarChat() {
+            chatbox.innerHTML = `
+                <div class="welcome-hero" id="welcome-message">
+                    <div class="welcome-icon">💬</div>
+                    <h2>Conversación reiniciada</h2>
+                    <p>Escribe cualquier duda o consulta para comenzar una nueva charla.</p>
+                </div>
+            `;
+            userInput.focus();
+        }
+
+        function agregarMensaje(remitente, texto, hora = null) {
+            if (welcomeHero && welcomeHero.parentNode) {
+                welcomeHero.remove();
+            }
+
+            const timeStr = hora || obtenerHoraActual();
+            const esUsuario = remitente === "usuario";
+            const row = document.createElement("div");
+            row.className = `message-row ${esUsuario ? 'user' : 'bot'}`;
+
+            const inicial = esUsuario ? 'Tú' : 'IA';
+            const etiqueta = esUsuario ? 'Tú' : 'Asistente IA';
+
+            row.innerHTML = `
+                <div class="avatar-small">${inicial}</div>
+                <div class="message-content">
+                    <span class="sender-name">${etiqueta}</span>
+                    <div class="bubble">${escapeHtml(texto)}</div>
+                    <span class="message-time">${timeStr}</span>
+                </div>
+            `;
+
+            chatbox.appendChild(row);
+            autoScroll();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function sendMessage() {
+            const mensaje = userInput.value.trim();
+            if (!mensaje) return;
+
+            // Mostrar mensaje del usuario de inmediato
+            agregarMensaje("usuario", mensaje);
+            userInput.value = "";
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Mostrar indicador de pensando
+            typingIndicator.style.display = "flex";
+            autoScroll();
+
+            const csrfTokenMeta = document.querySelector("meta[name='csrf-token']");
+            const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute("content") : "";
+            const rolSelect = document.getElementById("role-select");
+            const rolActivo = rolSelect ? rolSelect.value : "general";
+
+            fetch("/chat/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrfToken
+                },
+                body: `user_input=${encodeURIComponent(mensaje)}&rol=${encodeURIComponent(rolActivo)}`
+            })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(data => { throw new Error(data.error || `Error ${res.status}`); });
+                }
+                return res.json();
+            })
+            .then(data => {
+                typingIndicator.style.display = "none";
+                agregarMensaje("bot", data.bot_response, data.timestamp);
+            })
+            .catch(err => {
+                typingIndicator.style.display = "none";
+                agregarMensaje("bot", "⚠️ Lo siento, ocurrió un problema al conectar con el modelo: " + err.message);
+            })
+            .finally(() => {
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+                autoScroll();
+            });
+        }
+
+        function toggleHistory(abrir) {
+            if (abrir) {
+                historyModal.style.display = "flex";
+                cargarHistorial();
+            } else {
+                historyModal.style.display = "none";
+            }
+        }
+
+        function cerrarSiFondo(e) {
+            if (e.target === historyModal) {
+                toggleHistory(false);
+            }
+        }
+
+        function cargarHistorial() {
+            historyItems.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Cargando historial...</p>`;
+            
+            fetch("/history/")
+            .then(res => res.json())
+            .then(data => {
+                if (!data.history || data.history.length === 0) {
+                    historyItems.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">No hay conversaciones guardadas aún.</p>`;
+                    return;
+                }
+
+                historyItems.innerHTML = "";
+                data.history.forEach(item => {
+                    const el = document.createElement("div");
+                    el.className = "history-item";
+                    el.innerHTML = `
+                        <div class="hist-time">${escapeHtml(item.timestamp || '')}</div>
+                        <div class="hist-q">👤 ${escapeHtml(item.user)}</div>
+                        <div class="hist-a">🤖 ${escapeHtml(item.bot)}</div>
+                    `;
+                    historyItems.appendChild(el);
+                });
+            })
+            .catch(err => {
+                historyItems.innerHTML = `<p style="color: #ef4444; font-size: 0.85rem; text-align: center;">Error al cargar el historial: ${err.message}</p>`;
+            });
+        }
+
+        /* Funcionalidades Adicionales: Exportación y Gestión */
+        function exportarHistorial(formato = 'md') {
+            mostrarToast(`Descargando historial en formato .${formato.toUpperCase()}...`);
+            window.location.href = `/export/?formato=${encodeURIComponent(formato)}`;
+        }
+
+        function vaciarHistorialBD() {
+            if (!confirm("¿Deseas vaciar completamente el historial de la base de datos? Esta acción eliminará todos los registros guardados.")) {
+                return;
+            }
+            const csrfTokenMeta = document.querySelector("meta[name='csrf-token']");
+            const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute("content") : "";
+
+            fetch("/clear-history/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrfToken
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                mostrarToast(data.message || "Historial vaciado exitosamente.");
+                cargarHistorial();
+                limpiarChat();
+            })
+            .catch(err => {
+                alert("Error al vaciar historial: " + err.message);
+            });
+        }
+
+        function cambiarRol() {
+            const select = document.getElementById("role-select");
+            const texto = select.options[select.selectedIndex].text;
+            mostrarToast(`Personalidad cambiada a: ${texto}`);
+        }
+
+        function mostrarToast(mensaje) {
+            let toast = document.getElementById("toast-banner");
+            if (!toast) {
+                toast = document.createElement("div");
+                toast.id = "toast-banner";
+                toast.className = "toast-banner";
+                document.querySelector(".chat-app-container").appendChild(toast);
+            }
+            toast.innerText = mensaje;
+            toast.style.display = "block";
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => {
+                toast.style.display = "none";
+            }, 3000);
+        }
+
+        // Inicialización automática para capturas si existe parámetro demo
+        window.addEventListener("DOMContentLoaded", () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("demo") === "chat") {
+                agregarMensaje("usuario", "¿Cuál es la diferencia entre Ollama y los servicios de IA en la nube?", "14:15");
+                agregarMensaje("bot", "Ollama ejecuta modelos de lenguaje de forma local y privada en tu hardware, sin enviar datos a internet ni depender de suscripciones externas. En cambio, los servicios en la nube requieren conexión permanente y procesan la información en servidores de terceros.", "14:15");
+            } else if (params.get("demo") === "drawer") {
+                agregarMensaje("usuario", "Escribe una función en Python para calcular la serie Fibonacci.", "14:20");
+                agregarMensaje("bot", "Claro, aquí tienes la función en Python:\n\ndef fibonacci(n):\n    a, b = 0, 1\n    for _ in range(n):\n        yield a\n        a, b = b, a + b", "14:20");
+                toggleHistory(true);
+            }
+        });
+    </script>
+</body>
+</html>
