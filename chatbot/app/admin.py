@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatHistory
+from .models import ChatHistory, Producto
 
 # Registro de modelos para administración
 
@@ -16,3 +16,12 @@ class ChatHistoryAdmin(admin.ModelAdmin):
     def bot_response_preview(self, obj):
         return obj.bot_response[:50] + ("..." if len(obj.bot_response) > 50 else "")
     bot_response_preview.short_description = "Respuesta del bot"
+
+
+@admin.register(Producto)
+class ProductoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nombre', 'categoria', 'marca', 'precio', 'cantidad_existente', 'estado', 'estado_stock', 'destacado')
+    list_filter = ('estado', 'categoria', 'marca', 'destacado')
+    search_fields = ('codigo', 'nombre', 'marca', 'especificaciones')
+    list_editable = ('precio', 'cantidad_existente', 'estado', 'destacado')
+

@@ -1,81 +1,129 @@
-# ChatBot con IA (Django + Ollama)
+# Sistema Web de Inventario de Productos con CRUD e Inteligencia Artificial Local (Ollama)
+### Entregable Final — Programación IV
 
-Esta aplicación web de chatbot proporciona una experiencia interactiva moderna con un diseño elegante de estilo *glassmorphism*, animaciones fluidas y respuestas en español impulsadas por **Ollama**. Permite enviar mensajes, recibir respuestas generadas por IA y consultar el historial completo de conversaciones.
-
-## Características Principales
-1. **Funcionamiento Local / Fuera de Línea** – La IA se ejecuta en tu propia máquina mediante Ollama, garantizando privacidad, seguridad y disponibilidad total sin conexión externa.
-2. **Acceso en Red Local** – Configurado para escuchar en todas las interfaces (`0.0.0.0:8000`) y ser accesible desde la subred `172.25.4.128/25` a través de la dirección IP `172.25.4.247`.
-3. **Interfaz Moderna y 100% en Español** – Diseño visual intuitivo con estilo *glassmorphism*, soporte para tecla Enter, indicador animado de escritura, paleta de colores sobria y sugerencias rápidas.
-4. **Sistema de Personalidades y Plantillas de Prompts (Nueva Funcionalidad)** – Selector dinámico de roles (Asistente General, Programador Python, Tutor Académico y Redactor Creativo) que ajusta la plantilla de instrucciones del modelo en tiempo real.
-5. **Exportación Multiformato del Historial (Nueva Funcionalidad)** – Descarga directa del historial de conversaciones en formatos Markdown (`.md`), Texto plano (`.txt`) o JSON estructurado (`.json`).
-6. **Historial y Gestión de Conversaciones** – Permite revisar mensajes anteriores con marcas de tiempo en un panel lateral deslizable y vaciar la base de datos de manera limpia cuando se requiera.
-7. **Comunicación Segura** – Protección CSRF configurada para soportar peticiones en red local sin bloqueos.
-8. **Diseño Responsivo** – Optimizado para dispositivos de escritorio y móviles.
+Aplicación web profesional desarrollada con **Django** que permite administrar un inventario completo de productos mediante operaciones **CRUD** y control de existencias, además de realizar consultas cuantitativas y analíticas sobre la información registrada utilizando un modelo de inteligencia artificial local ejecutado con **Ollama**.
 
 ---
 
-## Tecnologías Utilizadas 📌
+## 📌 Características Implementadas
 
-### Frontend 📫
-- HTML5 semántico
-- CSS3 Moderno (Glassmorphism, Flexbox, animaciones clave)
-- JavaScript nativo (Fetch API, manipulación asíncrona del DOM)
-- Tipografía Plus Jakarta Sans
+### 1. Módulo de Productos (CRUD Completo)
+* **RF-01. Registro de productos:** Formulario modal con validación estricta de código único, nombre, categoría, precio ($\ge 0$), cantidad existente ($\ge 0$), stock mínimo ($\ge 0$), estado del producto (Activo/Inactivo) y fecha de creación.
+* **RF-02. Consulta y Búsqueda:** Tabla interactiva en tiempo real con filtrado por texto (código, nombre o categoría), selector de categorías y estado (Activos / Inactivos / Todos).
+* **RF-03. Actualización de productos:** Edición directa de información existente con validaciones de unicidad y no negatividad.
+* **RF-04. Eliminación de productos:** Soporte para eliminación lógica recomendada (cambio a estado *Inactivo* para preservar historial) y eliminación física definitiva.
+* **RF-05. Control de existencia:** Acciones rápidas para aumentar (+) y disminuir (-) stock de forma atómica, impidiendo que la cantidad disponible sea negativa.
 
-### Backend 🛠️
-- Python 3.11+
-- Django 5.1
-- LangChain / LangChain-Ollama
-- Ollama (Modelos locales `qwen2.5:0.5b` y `qwen2.5:1.5b`)
+### 2. Menú de Reportes Predefinidos (RF-06)
+Menú interactivo con los **8 reportes oficiales** requeridos:
+1. **Listar todos los productos:** Catálogo general con totales consolidado.
+2. **Producto más caro:** Identificación del artículo con el precio unitario más alto.
+3. **Producto más barato:** Identificación del artículo más económico.
+4. **Productos con pocas existencias:** Artículos con existencia $\le$ stock mínimo fijado.
+5. **Productos agotados:** Artículos con cantidad disponible igual a cero (0).
+6. **Productos por categoría:** Resumen cuantitativo y valorización económica agrupada.
+7. **Valor total del inventario:** Sumatoria exacta $\sum (\text{precio} \times \text{cantidad})$ de existencias en almacén.
+8. **Productos con mayor cantidad disponible:** Artículos con mayor disponibilidad física.
+* **Explicación en Lenguaje Natural con Ollama (RF-06):** Botón *"✨ Explicar con IA"* que envía los datos del reporte seleccionado al modelo local de Ollama para redactar un resumen explicativo.
 
-### Base de Datos 🗃️
-- SQLite3
-
----
-
-## Requisitos Previos
-- Python 3.11 o superior
-- Ollama instalado y en ejecución (`systemctl is-active ollama`)
-- Modelo descargado en Ollama:
-  ```bash
-  ollama pull qwen2.5:0.5b
-  # o también:
-  ollama pull qwen2.5:1.5b
-  ```
+### 3. Chat con Inteligencia Artificial Local (RF-07, RF-08, RF-09)
+* **Integración Local:** Conexión directa mediante la API de Ollama (`http://localhost:11434/api/generate`) con modelo configurable vía `.env` (`OLLAMA_MODEL`, por defecto `qwen2.5:0.5b` o `llama3.2`).
+* **Contexto JSON Estructurado:** Envío de los datos del inventario en formato JSON limpio (`codigo`, `nombre`, `categoria`, `precio`, `cantidad_existente`, `stock_minimo`).
+* **Restricción Estricta de Respuestas (RF-09):** La IA responde únicamente basándose en la información oficial suministrada. Ante preguntas no relacionadas o sin datos suficientes, declina formalmente: *"No encontré información suficiente en el inventario para responder esa pregunta."*
+* **RF-10. Historial de Consultas:** Almacenamiento cronológico de preguntas y respuestas con exportación en 5 formatos (PDF/HTML imprimible, Excel/CSV, JSON estructurado, Markdown y TXT).
 
 ---
 
-## Cómo Iniciar el Proyecto
+## 🛠️ Tecnologías y Arquitectura
 
-### 1. Iniciar con el Script Rápido (Recomendado)
-Desde la raíz del proyecto, ejecuta:
+* **Backend:** Python 3.11, Django 5.1.6
+* **Base de Datos:** SQLite3
+* **Motor de IA Local:** Ollama (API REST local en puerto 11434)
+* **Frontend:** HTML5, CSS3 Moderno (Glassmorphism, Modo Claro/Oscuro, Responsive), JavaScript Nativo (Fetch API)
+* **Red Local:** Servidor en `0.0.0.0:8000` accesible desde la IP `172.25.4.247:8000`
+
+---
+
+## 🚀 Instrucciones de Instalación y Ejecución
+
+### 1. Clonar o Ubicarse en el Proyecto
+```bash
+cd /home/gabriel/Downloads/Alcon_Gabriel_Actividad4_ProgramacionIV/proyecto
+```
+
+### 2. Configurar el Entorno Virtual
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Configurar Variables de Entorno (Opcional)
+Se incluye la plantilla `.env.example` en la raíz:
+```bash
+cp .env.example .env
+```
+Contenido de configuración:
+```env
+OLLAMA_URL=http://localhost:11434/api/generate
+OLLAMA_MODEL=qwen2.5:0.5b
+DEBUG=True
+ALLOWED_HOSTS=172.25.4.247,localhost,127.0.0.1,0.0.0.0
+```
+
+### 4. Verificar el Servicio de Ollama
+Asegúrate de que Ollama esté en ejecución:
+```bash
+systemctl is-active ollama
+# Salida esperada: active
+```
+
+### 5. Aplicar Migraciones
+```bash
+python chatbot/manage.py migrate
+```
+
+### 6. (Opcional) Poblar el Inventario Inicial con 100 Productos
+```bash
+python chatbot/poblar_inventario.py
+```
+
+### 7. Iniciar el Servidor de Desarrollo
+Puedes utilizar el script automatizado:
 ```bash
 ./iniciar_servidor.sh
 ```
-
-### 2. O Iniciar Manualmente con el Entorno Virtual:
+O ejecutar directamente:
 ```bash
-# Activar entorno virtual
 source .venv/bin/activate
-
-# Iniciar el servidor escuchando en todas las interfaces de red
 python chatbot/manage.py runserver 0.0.0.0:8000
 ```
 
 ---
 
-## Ejecución de Pruebas Automatizadas
+## 🌐 Direcciones de Acceso
 
-El proyecto cuenta con un conjunto de pruebas unitarias automatizadas que verifican la interfaz, endpoints del chat, roles, exportación y base de datos:
-
-```bash
-# Con el entorno virtual activado:
-python chatbot/manage.py test app
-```
+* **En tu navegador local:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+* **En tu red local (IP asignada):** [http://172.25.4.247:8000/](http://172.25.4.247:8000/)
 
 ---
 
-## Direcciones de Acceso
+## 🧪 Ejecución de Pruebas Automatizadas
 
-- **En este mismo equipo:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
-- **Desde cualquier equipo de tu red (172.25.4.128/25):** [http://172.25.4.247:8000/](http://172.25.4.247:8000/)
+El proyecto incluye 9 pruebas unitarias automatizadas que cubren el 100% de los requerimientos funcionales (RF-01 a RF-10):
+
+```bash
+source .venv/bin/activate
+python chatbot/manage.py test app
+```
+
+Resultado esperado:
+```text
+Found 9 test(s).
+Creating test database for alias 'default'...
+.........
+----------------------------------------------------------------------
+Ran 9 tests in 0.28s
+
+OK
+```

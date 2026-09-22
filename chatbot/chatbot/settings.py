@@ -33,6 +33,21 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
 ]
 
+# Configuración de Inteligencia Artificial Local (Ollama - Requerimiento RF-08)
+import os
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:1.5b")
+
+# Sistema de Caché en Memoria para acelerar consultas y reportes
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'inventario-mem-cache',
+        'TIMEOUT': 300, # 5 minutos de tiempo de vida
+    }
+}
+
+
 
 # Application definition
 

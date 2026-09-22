@@ -1,0 +1,23 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode y cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Variables de entorno sensibles (usar .env.example como plantilla)
+.env
+
+# Archivos de sistema e IDEs
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
