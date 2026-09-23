@@ -101,6 +101,11 @@ Todos los precios se encuentran expresados y calculados en **Bolivianos (`Bs.` /
    # O iniciar manualmente: ollama serve &
    ```
 
+3.1. **Crear modelo local con restricciones de inventario (Opcional):**
+   ```bash
+   ollama create productos-qwen2.5 -f ./ollama/Modelfile-productos
+   ```
+
 4. **Aplicar migraciones:**
    ```bash
    python chatbot/manage.py migrate
