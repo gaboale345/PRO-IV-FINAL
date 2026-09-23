@@ -10,22 +10,34 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Carga de variables de entorno desde .env (raíz del proyecto o directorio chatbot)
+try:
+    from dotenv import load_dotenv
+    env_path = BASE_DIR.parent / '.env'
+    if not env_path.exists():
+        env_path = BASE_DIR / '.env'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+except ImportError:
+    pass
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-11fjn77moyj1)9xn26b8nehesexav=a!c=xw2eeq-36n+6dkkn'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-11fjn77moyj1)9xn26b8nehesexav=a!c=xw2eeq-36n+6dkkn')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').strip().lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['172.25.4.247', 'localhost', '127.0.0.1', '0.0.0.0', '*']
+raw_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '172.25.4.247,localhost,127.0.0.1,0.0.0.0,*')
+ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts.split(',') if h.strip()]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://172.25.4.247:8000',
@@ -34,7 +46,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Configuración de Inteligencia Artificial Local (Ollama - Requerimiento RF-08)
-import os
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:1.5b")
 

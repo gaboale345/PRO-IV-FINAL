@@ -19,5 +19,7 @@ __pycache__/
 *.swp
 *.swo
 
-# Logs
+# Logs y archivos temporales de base de datos WAL
 *.log
+*.sqlite3-wal
+*.sqlite3-shm

@@ -173,7 +173,7 @@ class InventarioCRDTests(TestCase):
     @patch('app.views.consultar_ollama_local')
     def test_rf07_rf08_rf09_chat_con_ollama(self, mock_ollama):
         """RF-07, RF-08, RF-09: Chat interactivo con contexto oficial de inventario y restricción."""
-        mock_ollama.return_value = (True, "El producto más caro es la Computadora Portátil Dell Inspiron con un precio de $750.00 USD.")
+        mock_ollama.return_value = (True, "El producto más caro es la Computadora Portátil Dell Inspiron con un precio de Bs. 750.00.")
 
         res = self.client.post(reverse('chat'), data={"user_input": "¿Cuál es el producto más caro?"})
         self.assertEqual(res.status_code, 200)
@@ -233,4 +233,95 @@ class InventarioCRDTests(TestCase):
         self.assertEqual(res["Content-Type"], "text/event-stream")
         content = b"".join(res.streaming_content).decode("utf-8")
         self.assertIn("No encontré información suficiente", content)
+
+    def test_kardex_registro_movimientos_y_consulta_api(self):
+        """Verifica el registro atómico de movimientos en el Kardex y su consulta vía API."""
+        # 1. Ajuste de stock vía API
+        res_ajuste = self.client.post(
+            reverse('api_ajustar_stock', kwargs={'pk': self.p1.id}),
+            data={"accion": "aumentar", "cantidad": 4, "motivo": "Recepción de lote de prueba"}
+        )
+        self.assertEqual(res_ajuste.status_code, 200)
+
+        # 2. Consultar Kardex del producto
+        res_kardex = self.client.get(reverse('api_kardex_producto', kwargs={'pk': self.p1.id}))
+        self.assertEqual(res_kardex.status_code, 200)
+        data = res_kardex.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["producto"]["id"], self.p1.id)
+        self.assertGreaterEqual(data["total_movimientos"], 1)
+
+        # Verificar primer movimiento
+        ultimo_mov = data["movimientos"][0]
+        self.assertEqual(ultimo_mov["tipo"], "ENTRADA")
+        self.assertEqual(ultimo_mov["cantidad"], 4)
+        self.assertEqual(ultimo_mov["stock_previo"], 10)
+        self.assertEqual(ultimo_mov["stock_resultante"], 14)
+        self.assertIn("Recepción de lote de prueba", ultimo_mov["motivo"])
+
+    def test_paginacion_catalogo_productos(self):
+        """Verifica la paginación interactiva del catálogo sin recarga de página."""
+        # Consultar página 1 con tamaño de 2 productos
+        res = self.client.get(reverse('api_productos') + '?pagina=1&por_pagina=2')
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["pagina"], 1)
+        self.assertEqual(data["por_pagina"], 2)
+        self.assertEqual(data["total"], 3)
+        self.assertEqual(data["total_paginas"], 2)
+        self.assertEqual(len(data["productos"]), 2)
+
+        # Consultar página 2
+        res2 = self.client.get(reverse('api_productos') + '?pagina=2&por_pagina=2')
+        self.assertEqual(res2.status_code, 200)
+        data2 = res2.json()
+        self.assertEqual(data2["pagina"], 2)
+        self.assertEqual(len(data2["productos"]), 1)
+
+    def test_exportacion_catalogo_csv(self):
+        """Verifica la exportación en tiempo real del catálogo a formato CSV."""
+        res = self.client.get(reverse('api_exportar_productos') + '?formato=csv')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/csv", res["Content-Type"])
+        self.assertIn("attachment; filename=", res["Content-Disposition"])
+        content = res.content.decode("utf-8-sig")
+        self.assertIn("Código", content)
+        self.assertIn("Precio (Bs.)", content)
+        self.assertIn("Cantidad Existente", content)
+        self.assertIn("COMP-01", content)
+        self.assertIn("PER-01", content)
+
+    def test_exportacion_catalogo_pdf_hoja_oficial(self):
+        """Verifica la generación de la Hoja Oficial de Inventario Valorizado imprimible en PDF."""
+        res = self.client.get(reverse('api_exportar_productos') + '?formato=pdf')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/html", res["Content-Type"])
+        content = res.content.decode("utf-8")
+        self.assertIn("SISTEMA INTEGRADO DE INVENTARIO Y ALMACÉN", content)
+        self.assertIn("Responsable de Almacén", content)
+        self.assertIn("Auditor de Sistemas", content)
+        self.assertIn("Bs.", content)
+
+    def test_importacion_catalogo_csv_valido(self):
+        """Verifica la importación masiva de productos desde archivo CSV."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_contenido = (
+            "codigo,nombre,categoria,precio,cantidad_existente,stock_minimo,descripcion\n"
+            "MIC-01,Micrófono Condensador USB,Audio,320.50,15,4,Micrófono para streaming y podcast\n"
+            "CAM-01,Cámara Web 1080p 60fps,Video,450.00,8,2,Cámara web profesional\n"
+        )
+        archivo_csv = SimpleUploadedFile(
+            "importar_prueba.csv",
+            csv_contenido.encode("utf-8-sig"),
+            content_type="text/csv"
+        )
+        res = self.client.post(reverse('api_importar_productos'), {"archivo_csv": archivo_csv})
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["creados"], 2)
+
+        # Verificar que existen en la base de datos
+        self.assertTrue(Producto.objects.filter(codigo="MIC-01").exists())
+        self.assertTrue(Producto.objects.filter(codigo="CAM-01").exists())
 

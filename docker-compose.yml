@@ -1,0 +1,31 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pro_iv_inventario_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-pro-iv-final-production-key-2026
+      - ALLOWED_HOSTS=*
+      - OLLAMA_URL=http://ollama:11434/api/generate
+      - OLLAMA_MODEL=qwen2.5:1.5b
+    volumes:
+      - ./chatbot/db.sqlite3:/app/chatbot/db.sqlite3
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pro_iv_ollama_ai
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  ollama_data:

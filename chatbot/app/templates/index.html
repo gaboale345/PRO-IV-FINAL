@@ -1002,6 +1002,46 @@
             transform: translateY(-1px);
         }
 
+        .btn-icon-mic {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--bg-card-border);
+            color: var(--text-main);
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            font-size: 1.15rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-icon-mic:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+        }
+
+        .btn-icon-mic.recording {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: #ef4444;
+            color: #ef4444;
+            animation: mic-pulse 1s infinite alternate;
+        }
+
+        @keyframes mic-pulse {
+            from { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            to { transform: scale(1.08); box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.6); }
+        }
+
+        .btn-tts {
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .btn-tts:hover {
+            transform: scale(1.15);
+        }
+
         .typing-indicator {
             display: none;
             align-items: center;
@@ -1286,7 +1326,7 @@
                         <div class="kpi-icon">💰</div>
                         <div class="kpi-info">
                             <span class="kpi-label">Valor Total Almacén</span>
-                            <span class="kpi-val" id="kpi-valor-total">${{ valor_total }}</span>
+                            <span class="kpi-val" id="kpi-valor-total">Bs. {{ valor_total }}</span>
                             <span class="kpi-sub"><span id="kpi-unidades-totales">{{ unidades_totales }}</span> unidades físicas</span>
                         </div>
                     </div>
@@ -1295,7 +1335,7 @@
                         <div class="kpi-icon">💎</div>
                         <div class="kpi-info">
                             <span class="kpi-label">Producto Más Caro</span>
-                            <span class="kpi-val" id="kpi-mas-caro-precio">${{ mas_caro.precio|default:"0.00" }}</span>
+                            <span class="kpi-val" id="kpi-mas-caro-precio">Bs. {{ mas_caro.precio|default:"0.00" }}</span>
                             <span class="kpi-sub" id="kpi-mas-caro-nombre">{{ mas_caro.nombre|default:"Sin productos" }}</span>
                         </div>
                     </div>
@@ -1341,6 +1381,21 @@
                             <span>Solo Alertas</span>
                         </label>
 
+                        <!-- Botón Exportar Catálogo PDF Oficial con Firmas -->
+                        <a href="/api/productos/exportar/?formato=pdf" target="_blank" class="btn-secondary" style="text-decoration: none; display: flex; align-items: center; gap: 4px;" title="Ver e imprimir Hoja Oficial con firmas y valoración contable">
+                            📄 Hoja PDF
+                        </a>
+
+                        <!-- Botón Exportar CSV -->
+                        <a href="/api/productos/exportar/?formato=csv" class="btn-secondary" style="text-decoration: none; display: flex; align-items: center; gap: 4px;" title="Descargar catálogo completo en CSV / Excel">
+                            📊 Exportar CSV
+                        </a>
+
+                        <!-- Botón Importar CSV -->
+                        <button type="button" class="btn-secondary" onclick="abrirModalImportar()" title="Carga masiva desde archivo CSV con auditoría Kardex">
+                            📥 Importar CSV
+                        </button>
+
                         <!-- Botón Crear Nuevo Producto (RF-01) -->
                         <button type="button" class="btn-primary" onclick="abrirModalCrear()">
                             <span>➕ Nuevo Producto</span>
@@ -1365,7 +1420,7 @@
                                     <th>Código</th>
                                     <th>Producto / Descripción</th>
                                     <th>Categoría</th>
-                                    <th>Precio ($)</th>
+                                    <th>Precio (Bs.)</th>
                                     <th>Existencia (Stock)</th>
                                     <th>Estado</th>
                                     <th style="text-align: right;">Acciones CRUD</th>
@@ -1379,6 +1434,25 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Barra de Paginación Interactiva -->
+                    <div class="pagination-bar" id="pagination-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: rgba(255,255,255,0.02); border-top: 1px solid var(--bg-card-border); font-size: 0.82rem; color: var(--text-muted); flex-wrap: wrap; gap: 10px;">
+                        <div id="pag-info">Mostrando 1 a 15 de 100 productos</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 4px;">Por pág:
+                                <select id="pag-size-select" class="select-custom" style="padding: 3px 8px; font-size: 0.8rem;" onchange="cambiarTamanoPagina()">
+                                    <option value="10">10</option>
+                                    <option value="15" selected>15</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="0">Todos</option>
+                                </select>
+                            </label>
+                            <button type="button" class="btn-secondary" id="btn-pag-prev" onclick="cambiarPagina(-1)" style="padding: 4px 10px;">◀ Ant</button>
+                            <span id="pag-current" style="font-weight: 700; color: var(--text-bright); padding: 0 4px;">1 / 7</span>
+                            <button type="button" class="btn-secondary" id="btn-pag-next" onclick="cambiarPagina(1)" style="padding: 4px 10px;">Sig ▶</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1548,18 +1622,21 @@
                         <button type="button" class="quick-pill" onclick="enviarPreguntaRapida('¿Qué productos tienen pocas existencias?')">⚠️ Pocas existencias</button>
                         <button type="button" class="quick-pill" onclick="enviarPreguntaRapida('¿Qué productos están agotados?')">🚫 ¿Qué productos están agotados?</button>
                         <button type="button" class="quick-pill" onclick="enviarPreguntaRapida('¿Cuál es el valor total del inventario?')">💰 ¿Cuál es el valor total del inventario?</button>
-                        <button type="button" class="quick-pill" onclick="enviarPreguntaRapida('¿Qué productos tienen un precio mayor a 500?')">💲 Precio mayor a 500</button>
-                        <button type="button" class="quick-pill" onclick="enviarPreguntaRapida('Muéstrame los productos cuya existencia sea menor a 10')">📉 Existencia menor a 10</button>
+                        <button type="button" class="quick-pill" onclick="enviarPreguntaRapida('¿Qué tarjetas gráficas RTX 40 tenemos disponibles?')">⚡ GPUs RTX 40 en stock</button>
+                        <button type="button" class="quick-pill" onclick="enviarPreguntaRapida('¿Qué procesadores AMD Ryzen hay registrados?')">📦 Procesadores AMD</button>
                     </div>
 
-                    <!-- Barra de Entrada del Chat -->
+                    <!-- Barra de Entrada del Chat con Micrófono -->
                     <footer class="chat-footer">
                         <div class="input-bar">
+                            <button type="button" class="btn-icon-mic" id="btn-mic" onclick="toggleReconocimientoVoz()" title="Dictar consulta por voz con micrófono">
+                                🎤
+                            </button>
                             <input 
                                 type="text" 
                                 id="user_input" 
                                 class="chat-input" 
-                                placeholder="Escribe tu consulta sobre productos, precios, existencias o valor del inventario..."
+                                placeholder="Escribe o dicta tu consulta sobre productos, precios, existencias o valor en Bs..."
                                 autocomplete="off"
                                 onkeydown="manejarTecla(event)"
                             >
@@ -1606,7 +1683,7 @@
                             <span class="field-error" id="err-categoria"></span>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="inp-precio">Precio ($ USD) *</label>
+                            <label class="form-label" for="inp-precio">Precio (Bs.) *</label>
                             <input type="number" id="inp-precio" name="precio" step="0.01" min="0" class="form-input" placeholder="0.00" required>
                             <span class="field-error" id="err-precio"></span>
                         </div>
@@ -1669,6 +1746,11 @@
                     <div class="form-group">
                         <label class="form-label">Cantidad de unidades *</label>
                         <input type="number" id="stock-cantidad" min="1" value="1" class="form-input" required>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label class="form-label" for="stock-motivo">Motivo / Justificación (Kardex)</label>
+                        <input type="text" id="stock-motivo" class="form-input" placeholder="Ej. Recepción de proveedor, Venta mostrador, Ajuste...">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1793,7 +1875,7 @@
             const estado = document.getElementById("inv-status-select").value;
             const soloAlertas = document.getElementById("chk-solo-alertas").checked;
 
-            const url = `/api/productos/?q=${encodeURIComponent(q)}&categoria=${encodeURIComponent(categoriaSeleccionada)}&orden=${encodeURIComponent(orden)}&estado=${encodeURIComponent(estado)}&solo_alertas=${soloAlertas}`;
+            const url = `/api/productos/?q=${encodeURIComponent(q)}&categoria=${encodeURIComponent(categoriaSeleccionada)}&orden=${encodeURIComponent(orden)}&estado=${encodeURIComponent(estado)}&solo_alertas=${soloAlertas}&page=${paginaActual}&page_size=${tamanoPagina}`;
 
             tbodyProductos.innerHTML = `
                 <tr>
@@ -1807,6 +1889,7 @@
             .then(res => res.json())
             .then(data => {
                 renderizarTablaProductos(data.productos || []);
+                actualizarPaginacion(data);
                 actualizarEstadisticas();
             })
             .catch(err => {
@@ -1847,7 +1930,7 @@
                         <span class="product-cell-desc">${escapeHtml(p.descripcion || p.especificaciones || 'Sin descripción adicional')}</span>
                     </td>
                     <td><span style="font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(p.categoria)}</span></td>
-                    <td><span class="price-text">$${p.precio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
+                    <td><span class="price-text">Bs. ${p.precio.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
                     <td>
                         <div class="stock-control-cell">
                             <button type="button" class="btn-stock-qty minus" onclick="ajustarStockRapido(${p.id}, 'disminuir', 1)" title="Disminuir 1 unidad">-</button>
@@ -1859,6 +1942,7 @@
                     <td>${estadoBadge}</td>
                     <td style="text-align: right;">
                         <div class="table-actions">
+                            <button type="button" class="btn-tbl-action" onclick="abrirModalKardex(${p.id}, '${escapeHtml(p.nombre)}', '${escapeHtml(p.codigo)}')" title="Ver auditoría de movimientos / Kardex">📋 Kardex</button>
                             <button type="button" class="btn-tbl-action" onclick="abrirModalEditar(${p.id})" title="Modificar información del producto">✏️ Editar</button>
                             <button type="button" class="btn-tbl-action danger" onclick="eliminarProducto(${p.id}, '${escapeHtml(p.nombre)}', ${p.estado})" title="${p.estado ? 'Desactivar producto' : 'Eliminar producto'}">
                                 ${p.estado ? '🚫 Desactivar' : '🗑️ Eliminar'}
@@ -1881,7 +1965,7 @@
                 document.getElementById("kpi-unidades-totales").innerText = d.unidades_totales;
                 document.getElementById("kpi-alertas-count").innerText = d.alertas_count;
                 if (d.mas_caro) {
-                    document.getElementById("kpi-mas-caro-precio").innerText = `$${d.mas_caro.precio.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                    document.getElementById("kpi-mas-caro-precio").innerText = `Bs. ${d.mas_caro.precio.toLocaleString('es-BO', { minimumFractionDigits: 2 })}`;
                     document.getElementById("kpi-mas-caro-nombre").innerText = d.mas_caro.nombre;
                 }
             })
@@ -2019,10 +2103,11 @@
         // =====================================================================
         // 4. CONTROL DE EXISTENCIA (RF-05)
         // =====================================================================
-        function ajustarStockRapido(id, accion, cantidad) {
+        function ajustarStockRapido(id, accion, cantidad, motivo = "") {
             const formData = new FormData();
             formData.append("accion", accion);
             formData.append("cantidad", cantidad);
+            if (motivo) formData.append("motivo", motivo);
 
             fetch(`/api/productos/${id}/ajustar-stock/`, {
                 method: "POST",
@@ -2046,6 +2131,8 @@
             document.getElementById("stock-prod-nombre").innerText = nombre;
             document.getElementById("stock-prod-actual").innerText = actual;
             document.getElementById("stock-cantidad").value = 1;
+            const motInp = document.getElementById("stock-motivo");
+            if (motInp) motInp.value = "";
             document.getElementById("modal-stock").style.display = "flex";
         }
 
@@ -2054,8 +2141,10 @@
             const id = document.getElementById("stock-prod-id").value;
             const accion = document.getElementById("stock-accion").value;
             const cantidad = document.getElementById("stock-cantidad").value;
+            const motInp = document.getElementById("stock-motivo");
+            const motivo = motInp ? motInp.value.trim() : "";
 
-            ajustarStockRapido(id, accion, cantidad);
+            ajustarStockRapido(id, accion, cantidad, motivo);
             cerrarModal("modal-stock");
         }
 
@@ -2105,7 +2194,7 @@
                         <th>Categoría</th>
                         <th>Total Referencias</th>
                         <th>Unidades Físicas</th>
-                        <th>Valor Total Estimado ($ USD)</th>
+                        <th>Valor Total Estimado (Bs.)</th>
                     </tr>
                 `;
                 datos.forEach(d => {
@@ -2130,7 +2219,7 @@
                     <tr><td>Total Referencias Activas</td><td><strong>${d.total_referencias_activas} productos</strong></td></tr>
                     <tr><td>Unidades Físicas en Almacén</td><td><strong>${d.unidades_totales_almacen} unidades</strong></td></tr>
                     <tr><td>Valor Total Económico</td><td><span class="price-text" style="font-size: 1.15rem;">${d.valor_total_formateado}</span></td></tr>
-                    <tr><td>Precio Unitario Promedio</td><td><strong>$${d.precio_promedio} USD</strong></td></tr>
+                    <tr><td>Precio Unitario Promedio</td><td><strong>Bs. ${d.precio_promedio}</strong></td></tr>
                 `;
             } else {
                 thead.innerHTML = `
@@ -2138,7 +2227,7 @@
                         <th>Código</th>
                         <th>Producto</th>
                         <th>Categoría</th>
-                        <th>Precio</th>
+                        <th>Precio (Bs.)</th>
                         <th>Existencia</th>
                     </tr>
                 `;
@@ -2148,7 +2237,7 @@
                         <td><span class="sku-code">${escapeHtml(d.codigo)}</span></td>
                         <td><strong>${escapeHtml(d.nombre)}</strong></td>
                         <td>${escapeHtml(d.categoria || '-')}</td>
-                        <td><span class="price-text">$${Number(d.precio).toFixed(2)}</span></td>
+                        <td><span class="price-text">Bs. ${Number(d.precio).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
                         <td><span class="stock-val-pill badge-success">${d.cantidad ?? d.stock_minimo ?? 0}</span></td>
                     `;
                     tbody.appendChild(tr);
@@ -2198,7 +2287,7 @@
                                 yAxisID: 'y'
                             },
                             {
-                                label: "Valoración Total ($ USD)",
+                                label: "Valoración Total (Bs.)",
                                 data: valores,
                                 backgroundColor: "rgba(16, 185, 129, 0.75)",
                                 borderColor: "#10b981",
@@ -2213,7 +2302,7 @@
                         interaction: { mode: 'index', intersect: false },
                         scales: {
                             y: { type: 'linear', position: 'left', title: { display: true, text: 'Unidades', color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
-                            y1: { type: 'linear', position: 'right', title: { display: true, text: 'Valor ($ USD)', color: '#94a3b8' }, grid: { drawOnChartArea: false }, ticks: { color: '#94a3b8' } },
+                            y1: { type: 'linear', position: 'right', title: { display: true, text: 'Valor (Bs.)', color: '#94a3b8' }, grid: { drawOnChartArea: false }, ticks: { color: '#94a3b8' } },
                             x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.04)' } }
                         },
                         plugins: {
@@ -2358,7 +2447,7 @@
                     <div class="msg-text-bubble">${esUsuario ? escapeHtml(texto) : formatearTextoMarkdown(texto)}</div>
                     <div class="msg-meta-row">
                         <span>${hora}</span>
-                        ${!esUsuario ? `<button type="button" class="btn-action" style="padding: 2px 6px; font-size: 0.68rem;" onclick="copiarTexto(this)">Copiar</button>` : ''}
+                        ${!esUsuario ? `<button type="button" class="btn-action" style="padding: 2px 6px; font-size: 0.68rem;" onclick="copiarTexto(this)">Copiar</button><button type="button" class="btn-action btn-tts" style="padding: 2px 6px; font-size: 0.68rem;" onclick="leerMensajeVoz(this)" title="Escuchar respuesta en voz alta">🔊</button>` : ''}
                     </div>
                 </div>
             `;
@@ -2392,6 +2481,7 @@
                     <div class="msg-meta-row">
                         <span>${hora}</span>
                         <button type="button" class="btn-action" style="padding: 2px 6px; font-size: 0.68rem;" onclick="copiarTexto(this)">Copiar</button>
+                        <button type="button" class="btn-action btn-tts" style="padding: 2px 6px; font-size: 0.68rem;" onclick="leerMensajeVoz(this)" title="Escuchar respuesta en voz alta">🔊</button>
                     </div>
                 </div>
             `;
@@ -2573,6 +2663,241 @@
             }
         }
 
+        // =====================================================================
+        // 9. FUNCIONES KARDEX, PAGINACIÓN, IMPORTACIÓN CSV Y VOZ
+        // =====================================================================
+        let paginaActual = 1;
+        let tamanoPagina = 15;
+        let totalPaginas = 1;
+
+        function actualizarPaginacion(data) {
+            paginaActual = data.page || 1;
+            totalPaginas = data.total_pages || 1;
+            const total = data.total || 0;
+            const inicio = total === 0 ? 0 : (paginaActual - 1) * (data.page_size || 15) + 1;
+            const fin = Math.min(inicio + (data.productos ? data.productos.length : 0) - 1, total);
+
+            document.getElementById("pag-info").innerText = `Mostrando ${inicio} a ${fin} de ${total} productos`;
+            document.getElementById("pag-current").innerText = `${paginaActual} / ${totalPaginas}`;
+            document.getElementById("btn-pag-prev").disabled = !data.has_prev;
+            document.getElementById("btn-pag-next").disabled = !data.has_next;
+        }
+
+        function cambiarPagina(delta) {
+            const nueva = paginaActual + delta;
+            if (nueva >= 1 && nueva <= totalPaginas) {
+                paginaActual = nueva;
+                cargarProductos();
+            }
+        }
+
+        function cambiarTamanoPagina() {
+            tamanoPagina = parseInt(document.getElementById("pag-size-select").value) || 0;
+            paginaActual = 1;
+            cargarProductos();
+        }
+
+        // Kardex
+        function abrirModalKardex(id, nombre, codigo) {
+            const modal = document.getElementById("modal-kardex");
+            document.getElementById("modal-kardex-title").innerText = `📋 Kardex de Inventario: ${codigo}`;
+            document.getElementById("modal-kardex-subtitle").innerText = nombre;
+            modal.style.display = "flex";
+
+            const tbody = document.getElementById("tbody-kardex");
+            const chips = document.getElementById("kardex-summary-chips");
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 25px; color: var(--text-muted);">Cargando historial de movimientos...</td></tr>`;
+            chips.innerHTML = "";
+
+            fetch(`/api/productos/${id}/kardex/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status !== "ok") {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 20px;">Error al cargar Kardex: ${data.message || 'Desconocido'}</td></tr>`;
+                    return;
+                }
+
+                chips.innerHTML = `
+                    <span class="stock-badge badge-success" style="font-size: 0.82rem; padding: 4px 10px;">Existencia Actual: ${data.producto.stock_actual} uds</span>
+                    <span class="stock-badge badge-warning" style="font-size: 0.82rem; padding: 4px 10px;">Stock Mínimo: ${data.producto.stock_minimo} uds</span>
+                    <span class="price-text" style="font-size: 0.85rem; padding: 4px 8px; background: rgba(255,255,255,0.04); border-radius: 6px;">Precio: Bs. ${data.producto.precio.toLocaleString('es-BO', { minimumFractionDigits: 2 })}</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;">(${data.total_movimientos} movimientos registrados)</span>
+                `;
+
+                if (!data.movimientos || data.movimientos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: var(--text-muted);">Sin movimientos registrados en el Kardex para este producto.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = "";
+                data.movimientos.forEach(m => {
+                    const tr = document.createElement("tr");
+                    let badgeClass = "badge-success";
+                    let icon = "➕";
+                    if (m.tipo === "SALIDA") {
+                        badgeClass = "badge-danger";
+                        icon = "➖";
+                    } else if (m.tipo === "AJUSTE") {
+                        badgeClass = "badge-warning";
+                        icon = "⚙️";
+                    }
+
+                    tr.innerHTML = `
+                        <td style="color: var(--text-muted); font-size: 0.76rem;">${m.fecha}</td>
+                        <td><span class="stock-badge ${badgeClass}">${icon} ${m.tipo}</span></td>
+                        <td style="font-weight: 700; text-align: center;">${m.cantidad}</td>
+                        <td style="text-align: center;"><span style="color: var(--text-muted);">${m.stock_previo}</span> &rarr; <strong>${m.stock_resultante}</strong></td>
+                        <td>${escapeHtml(m.motivo || '-')}</td>
+                        <td><span style="font-size: 0.76rem; color: var(--text-muted);">${escapeHtml(m.usuario)}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 20px;">Error: ${err.message}</td></tr>`;
+            });
+        }
+
+        // Importación CSV
+        function abrirModalImportar() {
+            document.getElementById("form-importar-csv").reset();
+            document.getElementById("import-result-box").style.display = "none";
+            document.getElementById("modal-importar").style.display = "flex";
+        }
+
+        function ejecutarImportacionCsv(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById("inp-archivo-csv");
+            if (!fileInput.files || fileInput.files.length === 0) {
+                mostrarToast("⚠️ Selecciona un archivo CSV.");
+                return;
+            }
+
+            const btnSubmit = document.getElementById("btn-submit-import");
+            btnSubmit.disabled = true;
+            btnSubmit.innerText = "Importando datos...";
+
+            const formData = new FormData();
+            formData.append("archivo_csv", fileInput.files[0]);
+
+            fetch("/api/productos/importar/", {
+                method: "POST",
+                headers: { "X-CSRFToken": getCsrfToken() },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = "Comenzar Importación";
+
+                const resBox = document.getElementById("import-result-box");
+                resBox.style.display = "block";
+                const r = data.resultado || {};
+
+                if (data.status === "ok") {
+                    resBox.innerHTML = `
+                        <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; color: #34d399; font-size: 0.84rem;">
+                            ✅ <strong>Importación exitosa:</strong><br>
+                            • ${r.creados || 0} productos nuevos creados.<br>
+                            • ${r.actualizados || 0} productos existentes actualizados.<br>
+                            • Movimientos registrados en el Kardex.
+                        </div>
+                    `;
+                    mostrarToast("✅ Importación CSV completada con éxito.");
+                    cargarProductos();
+                    actualizarEstadisticas();
+                } else {
+                    const errList = (r.errores || []).slice(0, 4).join("<br>");
+                    resBox.innerHTML = `
+                        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px; color: #f87171; font-size: 0.82rem;">
+                            ⚠️ <strong>Hubo advertencias:</strong><br>
+                            ${errList || data.message}
+                        </div>
+                    `;
+                    cargarProductos();
+                }
+            })
+            .catch(err => {
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = "Comenzar Importación";
+                mostrarToast("Error en la importación: " + err.message);
+            });
+        }
+
+        // Control por Voz (Speech-to-Text & Text-to-Speech)
+        let reconocimiento = null;
+        let grabandoVoz = false;
+
+        function toggleReconocimientoVoz() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const btnMic = document.getElementById("btn-mic");
+            
+            if (!SpeechRecognition) {
+                mostrarToast("⚠️ Tu navegador no soporta Web Speech API para dictado por voz.");
+                return;
+            }
+
+            if (grabandoVoz && reconocimiento) {
+                reconocimiento.stop();
+                grabandoVoz = false;
+                btnMic.classList.remove("recording");
+                return;
+            }
+
+            reconocimiento = new SpeechRecognition();
+            reconocimiento.lang = "es-BO";
+            reconocimiento.continuous = false;
+            reconocimiento.interimResults = false;
+
+            reconocimiento.onstart = () => {
+                grabandoVoz = true;
+                btnMic.classList.add("recording");
+                mostrarToast("🎙️ Escuchando... Dicta tu consulta ahora.");
+            };
+
+            reconocimiento.onresult = (event) => {
+                const transcripcion = event.results[0][0].transcript;
+                userInput.value = transcripcion;
+                userInput.focus();
+                mostrarToast(`Dictado: "${transcripcion}"`);
+            };
+
+            reconocimiento.onerror = (event) => {
+                grabandoVoz = false;
+                btnMic.classList.remove("recording");
+                mostrarToast("⚠️ Error de voz: " + event.error);
+            };
+
+            reconocimiento.onend = () => {
+                grabandoVoz = false;
+                btnMic.classList.remove("recording");
+            };
+
+            reconocimiento.start();
+        }
+
+        function leerMensajeVoz(btn) {
+            if (!("speechSynthesis" in window)) {
+                mostrarToast("⚠️ Tu navegador no soporta síntesis de voz (Text-to-Speech).");
+                return;
+            }
+
+            const bubble = btn.closest(".msg-body-wrap").querySelector(".msg-text-bubble");
+            if (!bubble) return;
+
+            window.speechSynthesis.cancel();
+            const texto = bubble.innerText.replace(/[*_#`]/g, "");
+            const utterance = new SpeechSynthesisUtterance(texto);
+            utterance.lang = "es-ES";
+            utterance.rate = 1.05;
+
+            btn.innerText = "🔊 Leyendo...";
+            utterance.onend = () => { btn.innerText = "🔊"; };
+            utterance.onerror = () => { btn.innerText = "🔊"; };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
         // Inicializar al cargar
         window.addEventListener("DOMContentLoaded", () => {
             const t = localStorage.getItem("inventory_theme") || "dark";
@@ -2582,3 +2907,4 @@
     </script>
 </body>
 </html>
+

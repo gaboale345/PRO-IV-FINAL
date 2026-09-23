@@ -8,6 +8,9 @@ from .views import (
     api_eliminar_producto,
     api_cambiar_estado,
     api_ajustar_stock,
+    api_kardex_producto,
+    api_exportar_productos,
+    api_importar_productos,
     api_reportes,
     api_estadisticas,
     chat,
@@ -29,8 +32,13 @@ urlpatterns = [
     path("api/productos/<int:pk>/eliminar/", api_eliminar_producto, name="api_eliminar_producto"),
     path("api/productos/<int:pk>/cambiar-estado/", api_cambiar_estado, name="api_cambiar_estado"),
 
-    # Control de Existencias (RF-05)
+    # Control de Existencias y Auditoría Kardex (RF-05)
     path("api/productos/<int:pk>/ajustar-stock/", api_ajustar_stock, name="api_ajustar_stock"),
+    path("api/productos/<int:pk>/kardex/", api_kardex_producto, name="api_kardex_producto"),
+
+    # Exportación e Importación de Inventario
+    path("api/productos/exportar/", api_exportar_productos, name="api_exportar_productos"),
+    path("api/productos/importar/", api_importar_productos, name="api_importar_productos"),
 
     # Menú de Reportes Predefinidos (RF-06)
     path("api/reportes/<str:tipo>/", api_reportes, name="api_reportes"),

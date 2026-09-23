@@ -50,12 +50,13 @@ class Producto(models.Model):
     codigo = models.CharField(max_length=50, unique=True, verbose_name="Código del Producto")
     nombre = models.CharField(max_length=200, verbose_name="Nombre del Producto")
     descripcion = models.TextField(blank=True, verbose_name="Descripción")
-    categoria = models.CharField(max_length=100, verbose_name="Categoría")
-    precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio ($ USD)")
+    categoria = models.CharField(max_length=100, db_index=True, verbose_name="Categoría")
+    precio = models.DecimalField(max_digits=10, decimal_places=2, db_index=True, verbose_name="Precio (Bs.)")
     cantidad_existente = models.PositiveIntegerField(default=0, verbose_name="Cantidad Existente")
     stock_minimo = models.PositiveIntegerField(default=5, verbose_name="Stock Mínimo")
-    estado = models.BooleanField(default=True, verbose_name="Estado del Producto")
+    estado = models.BooleanField(default=True, db_index=True, verbose_name="Estado del Producto")
     fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Registro")
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
 
     # Campos complementarios para enriquecimiento del catálogo
     marca = models.CharField(max_length=100, blank=True, default="", verbose_name="Marca")
@@ -69,7 +70,7 @@ class Producto(models.Model):
 
     def __str__(self):
         estado_txt = "Activo" if self.estado else "Inactivo"
-        return f"[{self.codigo}] {self.nombre} - ${self.precio} ({estado_txt})"
+        return f"[{self.codigo}] {self.nombre} - Bs. {self.precio} ({estado_txt})"
 
     # Compatibilidad hacia atrás con código existente
     @property
@@ -109,4 +110,38 @@ class Producto(models.Model):
         elif self.cantidad_existente <= self.stock_minimo:
             return "badge-warning"
         return "badge-success"
+
+
+class MovimientoStock(models.Model):
+    """
+    Registro histórico y trazabilidad de movimientos de almacén (Kardex).
+    Permite auditar quién, cuándo y por qué se modificaron las existencias.
+    """
+    TIPO_CHOICES = [
+        ("ENTRADA", "Entrada (+)"),
+        ("SALIDA", "Salida (-)"),
+        ("AJUSTE", "Ajuste de Inventario"),
+    ]
+
+    producto = models.ForeignKey(
+        Producto,
+        on_delete=models.CASCADE,
+        related_name="movimientos",
+        verbose_name="Producto"
+    )
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, verbose_name="Tipo de Movimiento")
+    cantidad = models.PositiveIntegerField(verbose_name="Cantidad")
+    stock_previo = models.PositiveIntegerField(verbose_name="Stock Previo")
+    stock_resultante = models.PositiveIntegerField(verbose_name="Stock Resultante")
+    motivo = models.CharField(max_length=255, verbose_name="Motivo / Justificación")
+    usuario = models.CharField(max_length=100, default="Administrador", verbose_name="Responsable")
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha y Hora")
+
+    class Meta:
+        verbose_name = "Movimiento de Stock (Kardex)"
+        verbose_name_plural = "Movimientos de Stock (Kardex)"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.tipo} ({self.cantidad}) - {self.producto.codigo}: {self.stock_previo} -> {self.stock_resultante}"
 
