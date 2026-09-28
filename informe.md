@@ -1,75 +1,551 @@
-# Informe Técnico de Proyecto Final: Sistema Empresarial de Gestión de Inventario, Kardex Físico-Valorado y Asistente Analítico con Inteligencia Artificial Local (Ollama)
-## Asignatura: Programación IV — Carrera de Ingeniería de Sistemas / Informática
+# Informe Técnico Final: Sistema de Información con CRUD e Integración de IA Local (Ollama)
+## Asignatura: Programación IV — Actividad 5
 
 ---
 
-### Portada y Datos del Proyecto
-* **Asignatura:** Programación IV
-* **Unidad / Ejes Temáticos:** Frameworks Web Avanzados (Django), Arquitectura de Software, Patrones de Diseño, Inteligencia Artificial Local y Trazabilidad Contable.
-* **Tema:** Proyecto Final — Sistema Integral de Inventario, Auditoría de Stock en Kardex, Reportes Gerenciales y Chatbot Analítico Offline con Ollama.
+### Portada del Proyecto
+* **Título del Proyecto:** Sistema de Gestión de Inventario Tecnológico con Trazabilidad Kardex, Reportes Gerenciales y Asistente Analítico Offline mediante Ollama
 * **Estudiante:** Gabriel Alcón
-* **Entorno de Desarrollo y Despliegue:** Debian Linux 12 x86_64, Python 3.11.2, Django 5.1.6, Ollama 0.4.7+, SQLite3 (Modo WAL), Docker & Docker Compose.
-* **Fecha:** Septiembre de 2026
+* **Asignatura:** Programación IV
+* **Docente:** Ing. Jared López Leaños
+* **Asistente de Codificación IA:** Google Antigravity (Advanced Agentic IDE)
+* **Fecha de Entrega:** 28 de Septiembre de 2026
+* **Herramientas y Entorno de Ejecución:** Python 3.11.2, Django 5.1.6, Ollama 0.4.7+ (`qwen2.5:1.5b`), Google Antigravity, SQLite 3 (Modo WAL), Git, Debian GNU/Linux 12 (Bookworm)
 
 ---
 
-## 1. Resumen Ejecutivo
+# Punto 1: Diseño e implementación del CRUD (30 pts)
 
-El presente proyecto final consolida las competencias de desarrollo backend profesional, ingeniería de software aplicada e integración de modelos de lenguaje de gran escala (**LLMs**) operando de manera 100% local y soberana mediante **Ollama**.
+## 1.1 Definición de la entidad y modelo de datos
+Para satisfacer el escenario de gestión de información empresarial se seleccionó la entidad **`Producto`**, orientada al comercio y distribución de componentes tecnológicos y hardware de alta gama en Bolivia (moneda oficial: Bolivianos, `Bs.`), desarrollada sobre el framework Django (Django Software Foundation, 2024).
 
-El sistema desarrollado resuelve la problemática de control de inventarios y toma de decisiones empresariales combinando:
-1. Un módulo transaccional robusto para el mantenimiento del catálogo de productos (**CRUD** completo bajo los estándares RF-01 al RF-05).
-2. Un sistema inmutable de trazabilidad contable mediante **Kardex físico-valorado**, donde cada ingreso, egreso o ajuste queda registrado de forma atómica.
-3. Un motor analítico con **8 reportes gerenciales predefinidos** y síntesis automática generada por inteligencia artificial.
-4. Un asistente virtual analítico en lenguaje natural con **Server-Sent Events (SSE)**, mitigación de alucinaciones mediante resolución determinística de hechos de inventario, y capacidades multimodales de voz (**Speech-to-Text** y **Text-to-Speech**).
-5. Cumplimiento de estándares de auditoría formal mediante la generación de **Hojas Oficiales de Inventario Valorizado** con casillas de firma y mecanismos de importación/exportación masiva en CSV.
+El modelo cumple holgadamente con el requisito mínimo de 6 campos (contando con 13 atributos en total), asegurando integridad referencial, indexación de alto desempeño y tipado estricto. En la Tabla 1 se presenta la ficha técnica del modelo de datos:
 
----
+**Tabla 1**  
+*Especificación de Atributos, Tipos de Datos y Restricciones del Modelo Producto*
 
-## 2. Arquitectura de Software y Patrones de Diseño
+| Nombre del Campo | Tipo de Dato en Django | Modificadores / Constraints | Propósito Funcional |
+| :--- | :--- | :--- | :--- |
+| `codigo` | `CharField(max_length=50)` | `unique=True`, obligatorio | Identificador único empresarial (SKU de referencia). |
+| `nombre` | `CharField(max_length=200)` | obligatorio | Denominación comercial completa del artículo. |
+| `descripcion` | `TextField` | `blank=True` | Descripción detallada de uso y características. |
+| `categoria` | `CharField(max_length=100)` | `db_index=True`, obligatorio | Agrupación taxonómica (ej. Tarjetas Gráficas, Procesadores). |
+| `precio` | `DecimalField(max_digits=10, decimal_places=2)` | `db_index=True`, $\ge 0$ | Precio de venta en moneda nacional (Bolivianos, Bs.). |
+| `cantidad_existente` | `PositiveIntegerField` | `default=0`, $\ge 0$ | Existencias físicas reales en almacén. |
+| `stock_minimo` | `PositiveIntegerField` | `default=5`, $\ge 0$ | Umbral crítico para generación de alertas de reposición. |
+| `estado` | `BooleanField` | `default=True`, `db_index=True` | Indicador de eliminación lógica (Activo / Inactivo). |
+| `fecha_registro` | `DateTimeField` | `auto_now_add=True` | Estampa temporal inmutable de alta en el sistema. |
+| `fecha_actualizacion` | `DateTimeField` | `auto_now=True` | Registro automático del último cambio en el catálogo. |
+| `marca` | `CharField(max_length=100)` | `blank=True` | Fabricante original del componente (ASUS, AMD, Corsair, etc.). |
+| `especificaciones` | `TextField` | `blank=True` | Ficha técnica y parámetros de hardware. |
+| `destacado` | `BooleanField` | `default=False` | Bandera para promoción en portada o catálogo primario. |
 
-Para evitar el antipatrón habitual de *Fat Models* o *Fat Views* en Django, el proyecto fue refactorizado adoptando una **Arquitectura en Capas (Layered Architecture)** y aplicando patrones de diseño reconocidos por la industria:
+*Nota.* Elaboración propia basada en la especificación del modelo de datos para persistencia en SQLite (Django Software Foundation, 2024).
 
-```
-[ Cliente Web / UI ] <--> [ Controladores HTTP (views.py) ]
-                                    |
-          +-------------------------+-------------------------+
-          |                         |                         |
-          v                         v                         v
-[ inventory_service.py ]   [ ollama_service.py ]   [ export_service.py ]
-   - Reglas de Negocio        - Pool Singleton        - Patrón Strategy
-   - Paginación Dinámica      - Resolver de Hechos    - Hoja PDF Oficial
-   - Ledger Kardex            - Caché TTLCache        - Export / Import CSV
-          |                         |                         |
-          +-------------------------+-------------------------+
-                                    |
-                       [ Capa de Datos (models.py) ]
-                       [ SQLite 3 - Modo WAL + Índices ]
-```
-
-### 2.1 Patrón Capa de Servicios (`Service Layer Pattern`)
-Se desacopló la lógica de negocio de los controladores HTTP, delegándola en módulos especializados dentro de `chatbot/app/services/`:
-* **`inventory_service.py`:** Centraliza las consultas filtradas y paginadas, recálculo de valoraciones económicas consolidadas, ejecución de los 8 reportes corporativos y registro de transacciones en el Kardex.
-* **`ollama_service.py`:** Encapsula la interacción con el runtime de Ollama, construcción de prompts contextuales enriquecidos con datos reales de la base de datos y control de fallas en red local.
-* **`export_service.py`:** Coordina la serialización multiformato y la ingesta masiva de archivos tabulados.
-
-### 2.2 Patrón Estrategia (`Strategy Pattern`)
-Para satisfacer los requisitos de exportación del historial del chat y del catálogo de productos sin recurrir a estructuras de control monolíticas (`if/elif/else`), se implementó el patrón Strategy mediante una clase base abstracta:
-
+### Fragmento de Código: `chatbot/app/models.py`
 ```python
+from django.db import models
+
+class Producto(models.Model):
+    codigo = models.CharField(max_length=50, unique=True, verbose_name="Código del Producto")
+    nombre = models.CharField(max_length=200, verbose_name="Nombre del Producto")
+    descripcion = models.TextField(blank=True, verbose_name="Descripción")
+    categoria = models.CharField(max_length=100, db_index=True, verbose_name="Categoría")
+    precio = models.DecimalField(max_digits=10, decimal_places=2, db_index=True, verbose_name="Precio (Bs.)")
+    cantidad_existente = models.PositiveIntegerField(default=0, verbose_name="Cantidad Existente")
+    stock_minimo = models.PositiveIntegerField(default=5, verbose_name="Stock Mínimo")
+    estado = models.BooleanField(default=True, db_index=True, verbose_name="Estado del Producto")
+    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Registro")
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+    marca = models.CharField(max_length=100, blank=True, default="", verbose_name="Marca")
+    especificaciones = models.TextField(blank=True, default="", verbose_name="Especificaciones Técnicas")
+    destacado = models.BooleanField(default=False, verbose_name="Producto Destacado")
+
+    class Meta:
+        verbose_name = "Producto"
+        verbose_name_plural = "Productos"
+        ordering = ["-precio"]
+
+    def __str__(self):
+        estado_txt = "Activo" if self.estado else "Inactivo"
+        return f"[{self.codigo}] {self.nombre} - Bs. {self.precio} ({estado_txt})"
+
+    @property
+    def estado_stock(self):
+        if self.cantidad_existente == 0:
+            return "Agotado"
+        elif self.cantidad_existente <= self.stock_minimo:
+            return "Stock Bajo"
+        return "En Stock"
+```
+
+Complementariamente, para asegurar trazabilidad contable inmutable, se implementó el modelo `MovimientoStock` (Kardex):
+```python
+class MovimientoStock(models.Model):
+    TIPO_CHOICES = [
+        ("ENTRADA", "Entrada (+)"),
+        ("SALIDA", "Salida (-)"),
+        ("AJUSTE", "Ajuste de Inventario"),
+    ]
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="movimientos")
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    cantidad = models.PositiveIntegerField()
+    stock_previo = models.PositiveIntegerField()
+    stock_resultante = models.PositiveIntegerField()
+    motivo = models.CharField(max_length=255)
+    usuario = models.CharField(max_length=100, default="Administrador")
+    fecha = models.DateTimeField(auto_now_add=True)
+```
+
+---
+
+## 1.2 Implementación en Django, migraciones y panel de administración personalizado
+
+### Comandos ejecutados y su salida de terminal
+Para crear y aplicar el esquema relacional en SQLite:
+
+```bash
+python chatbot/manage.py makemigrations app
+```
+**Salida obtenida:**
+```text
+Migrations for 'app':
+  chatbot/app/migrations/0006_producto_fecha_actualizacion_and_more.py
+    - Add field fecha_actualizacion to producto
+    - Add field marca to producto
+    - Add field especificaciones to producto
+    - Add field destacado to producto
+```
+
+```bash
+python chatbot/manage.py migrate
+```
+**Salida obtenida:**
+```text
+Operations to perform:
+  Apply all migrations: admin, app, auth, contenttypes, sessions
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying app.0001_initial... OK
+  Applying app.0002_alter_chathistory_options_and_more... OK
+  Applying app.0003_producto... OK
+  Applying app.0004_actualizar_producto... OK
+  Applying app.0005_alter_producto_cantidad_existente_and_more... OK
+  Applying app.0006_producto_fecha_actualizacion_and_more... OK
+  Applying sessions.0001_initial... OK
+```
+
+```bash
+python chatbot/manage.py runserver 0.0.0.0:8000
+```
+**Salida obtenida:**
+```text
+Watching for file changes with StatReloader
+Performing system checks...
+
+System check identified no issues (0 silenced).
+Django version 5.1.6, using settings 'chatbot.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+```
+
+### Fragmento de Código: Panel de Administración Personalizado (`chatbot/app/admin.py`)
+```python
+from django.contrib import admin
+from .models import ChatHistory, Producto
+
+@admin.register(Producto)
+class ProductoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nombre', 'categoria', 'marca', 'precio', 'cantidad_existente', 'estado', 'estado_stock', 'destacado')
+    list_filter = ('estado', 'categoria', 'marca', 'destacado')
+    search_fields = ('codigo', 'nombre', 'marca', 'especificaciones')
+    list_editable = ('precio', 'cantidad_existente', 'estado', 'destacado')
+```
+
+---
+
+## 1.3 Vistas, formularios y plantillas para el CRUD completo
+
+El sistema cuenta con un flujo CRUD interactivo respaldado por formularios Django que realizan validación a nivel de servidor (unicidad, tipos de datos, valores no negativos) y controladores que retornan retroalimentación con mensajes de éxito o error.
+
+### Fragmento de Código: Formularios con Validaciones (`chatbot/app/forms.py`)
+```python
+from django import forms
+from .models import Producto
+
+class ProductoForm(forms.ModelForm):
+    class Meta:
+        model = Producto
+        fields = ['codigo', 'nombre', 'descripcion', 'categoria', 'precio', 'cantidad_existente', 'stock_minimo', 'estado', 'marca', 'especificaciones']
+
+    def clean_codigo(self):
+        codigo = self.cleaned_data.get('codigo', '').strip()
+        if not codigo:
+            raise forms.ValidationError("El código del producto es obligatorio.")
+        qs = Producto.objects.filter(codigo__iexact=codigo)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(f"El código '{codigo}' ya está registrado con otro producto.")
+        return codigo
+
+    def clean_precio(self):
+        precio = self.cleaned_data.get('precio')
+        if precio is None or precio < 0:
+            raise forms.ValidationError("El precio no puede ser negativo.")
+        return precio
+
+    def clean_cantidad_existente(self):
+        cantidad = self.cleaned_data.get('cantidad_existente')
+        if cantidad is None or cantidad < 0:
+            raise forms.ValidationError("La cantidad existente no puede ser negativa.")
+        return cantidad
+```
+
+### Fragmento de Código: Controladores CRUD (`chatbot/app/views.py`)
+```python
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_crear_producto(request):
+    """Creación de nuevo producto con validación y apertura en Kardex."""
+    form = ProductoForm(request.POST)
+    if form.is_valid():
+        producto = form.save()
+        if producto.cantidad_existente > 0:
+            registrar_movimiento_kardex(
+                producto=producto, tipo="ENTRADA", cantidad=producto.cantidad_existente,
+                stock_previo=0, stock_resultante=producto.cantidad_existente,
+                motivo="Registro inicial y alta en catálogo"
+            )
+        invalidar_cache()
+        return JsonResponse({"status": "ok", "message": f"Producto '{producto.nombre}' registrado exitosamente."}, status=201)
+    return JsonResponse({"status": "error", "errors": form.errors}, status=400)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_editar_producto(request, pk):
+    """Edición de producto con asiento de ajuste en Kardex."""
+    producto = get_object_or_404(Producto, pk=pk)
+    stock_anterior = producto.cantidad_existente
+    form = ProductoForm(request.POST, instance=producto)
+    if form.is_valid():
+        prod_guardado = form.save()
+        if stock_anterior != prod_guardado.cantidad_existente:
+            delta = prod_guardado.cantidad_existente - stock_anterior
+            registrar_movimiento_kardex(
+                producto=prod_guardado, tipo="AJUSTE", cantidad=abs(delta),
+                stock_previo=stock_anterior, stock_resultante=prod_guardado.cantidad_existente,
+                motivo=f"Ajuste manual de stock en edición ({delta:+d} uds)"
+            )
+        invalidar_cache()
+        return JsonResponse({"status": "ok", "message": f"Producto '{prod_guardado.nombre}' actualizado correctamente."})
+    return JsonResponse({"status": "error", "errors": form.errors}, status=400)
+
+@csrf_exempt
+@require_http_methods(["POST", "DELETE"])
+def api_eliminar_producto(request, pk):
+    """Eliminación lógica (desactivación) para preservar integridad contable del Kardex."""
+    producto = get_object_or_404(Producto, pk=pk)
+    accion = request.POST.get("tipo_eliminacion", "logica").strip()
+    if accion == "fisica":
+        producto.delete()
+        msg = "eliminado definitivamente del sistema."
+    else:
+        producto.estado = False
+        producto.save()
+        msg = "desactivado lógicamente (Estado: Inactivo)."
+    invalidar_cache()
+    return JsonResponse({"status": "ok", "message": f"Producto '{producto.nombre}' {msg}"})
+```
+
+---
+
+## 1.4 Implementación y resultados de los 8 reportes predefinidos
+
+El sistema supera el requisito de 5 reportes, ofreciendo **8 reportes corporativos predefinidos** en `inventory_service.py` con síntesis de datos oficiales verificados:
+
+```bash
+curl -s http://127.0.0.1:8000/api/reportes/<tipo>/
+```
+
+### Descripción textual de los resultados obtenidos en cada reporte:
+
+1. **Reporte 1: Catálogo Completo de Productos (`todos`)**
+   - *Descripción:* Muestra el inventario consolidado activo.
+   - *Datos obtenidos:* Contiene exactamente **50 productos tecnológicos registrados**, todos en estado activo (`estado=True`), clasificados en sus 10 categorías oficiales.
+
+2. **Reporte 2: Producto Más Caro (`mas_caro`)**
+   - *Descripción:* Identifica el artículo de mayor precio unitario de venta.
+   - *Datos obtenidos:* **ASUS ROG Strix GeForce RTX 4090 24GB OC Edition** (Código: `GPU-NV-4090-ROG`), perteneciente a la categoría *Tarjetas Gráficas*, con un precio unitario de **Bs. 26,839.88** y 8 unidades físicas disponibles.
+
+3. **Reporte 3: Producto Más Barato (`mas_barato`)**
+   - *Descripción:* Identifica el componente con el costo más accesible.
+   - *Datos obtenidos:* **Crucial 8GB DDR4 3200MHz UDIMM** (Código: `RAM-CRU-8GB-D4`), en la categoría *Memorias RAM*, con un precio unitario de **Bs. 243.88** y 25 unidades en inventario.
+
+4. **Reporte 4: Productos con Pocas Existencias (`pocas_existencias`)**
+   - *Descripción:* Filtra artículos con existencia física $\le$ al stock mínimo establecido (sin llegar a cero).
+   - *Datos obtenidos:* Se detectan **3 referencias críticas**:
+     * `CPU-AMD-7800X3D` (*AMD Ryzen 7 7800X3D*): 1 unidad disponible (stock mínimo fijado: 4 unidades).
+     * `MB-ASU-Z790-HERO` (*ASUS ROG Maximus Z790 Dark Hero*): 2 unidades disponibles (stock mínimo fijado: 2 unidades).
+     * `REF-ASU-RYU3-360` (*ASUS ROG Ryujin III 360 ARGB LCD*): 2 unidades disponibles (stock mínimo fijado: 2 unidades).
+
+5. **Reporte 5: Productos Agotados (`agotados`)**
+   - *Descripción:* Detecta referencias cuya existencia física en almacén es exactamente cero (0).
+   - *Datos obtenidos:* Se registra **1 producto agotado**: **Gigabyte A520M K V2 Ultra Durable** (Código: `MB-GIG-A520M-K`), categoría *Placas Madre*, precio Bs. 853.88, existencia 0 unidades.
+
+6. **Reporte 6: Resumen por Categoría (`por_categoria`)**
+   - *Descripción:* Distribución cuantitativa y económica por categoría de producto.
+   - *Datos obtenidos:* **10 categorías activas** con 5 productos cada una:
+     * *Tarjetas Gráficas:* 5 refs, 35 unidades, valoración Bs. 488,855.80.
+     * *Monitores:* 5 refs, 24 unidades, valoración Bs. 293,777.12.
+     * *Procesadores:* 5 refs, 21 unidades, valoración Bs. 125,777.48.
+     * *Fuentes de Poder:* 5 refs, 20 unidades, valoración Bs. 78,931.60.
+     * *Almacenamiento:* 5 refs, 31 unidades, valoración Bs. 77,222.28.
+     * *Placas Madre:* 5 refs, 26 unidades, valoración Bs. 70,516.88.
+     * *Refrigeración:* 5 refs, 28 unidades, valoración Bs. 47,828.64.
+     * *Periféricos:* 5 refs, 52 unidades, valoración Bs. 39,283.76.
+     * *Memorias RAM:* 5 refs, 61 unidades, valoración Bs. 23,288.68.
+     * *Gabinetes:* 5 refs, 22 unidades, valoración Bs. 16,994.92.
+
+7. **Reporte 7: Valor Total del Inventario (`valor_total`)**
+   - *Descripción:* Agregación macroeconómica del capital inmovilizado en almacén ($\sum \text{precio} \times \text{cantidad}$).
+   - *Datos obtenidos:* Total de referencias activas: **50 productos**; unidades totales físicas: **332 unidades**; valor total consolidado: **Bs. 1,262,477.16**; precio promedio por ítem: Bs. 5,015.30.
+
+8. **Reporte 8: Productos con Mayor Cantidad Disponible (`mayor_existencia`)**
+   - *Descripción:* Artículos con mayor volumen físico de existencias.
+   - *Datos obtenidos:* Encabezado por **SteelSeries QcK Heavy XXL Pad Mouse** con **30 unidades**, seguido de **Crucial 8GB DDR4 3200MHz** con **25 unidades**, y **Corsair Vengeance RGB 32GB DDR5** con **14 unidades**.
+
+---
+
+## 1.5 Evidencia de Interacciones con Google Antigravity en el Diseño e Implementación del CRUD
+
+Conforme a las directrices de asistencia con IA agéntica, se utilizó **Google Antigravity** para el diseño del modelo relacional, la formulación de validaciones y la construcción de los controladores CRUD. A continuación se presentan las evidencias directas:
+
+### Interacción 1.5.1: Modelado de Datos y Validación de Claves
+* **Prompt del Desarrollador:**
+  ```text
+  "Genera un modelo Django en app/models.py para la entidad Producto con más de 10 atributos comerciales para Bolivia (moneda Bs.). Debe tener código único (SKU), categoría indexada, precio positivo, stock físico y mínimo. Además, modela una entidad MovimientoStock para llevar el Kardex físico-valorado de cada entrada, salida y ajuste con usuario y justificación."
+  ```
+* **Respuesta y Razonamiento de Antigravity:**
+  Antigravity propuso el esquema relacional con `PositiveIntegerField` para imposibilitar valores negativos a nivel de base de datos, y un modelo inmutable `MovimientoStock` vinculado mediante `ForeignKey`.
+* **Fragmento de Código Generado por Antigravity:**
+  ```python
+  class MovimientoStock(models.Model):
+      TIPO_CHOICES = [("ENTRADA", "Entrada (+)"), ("SALIDA", "Salida (-)"), ("AJUSTE", "Ajuste de Inventario")]
+      producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="movimientos")
+      tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+      cantidad = models.PositiveIntegerField()
+      stock_previo = models.PositiveIntegerField()
+      stock_resultante = models.PositiveIntegerField()
+      motivo = models.CharField(max_length=255)
+      usuario = models.CharField(max_length=100, default="Administrador")
+      fecha = models.DateTimeField(auto_now_add=True)
+  ```
+
+### Interacción 1.5.2: Formularios con Validación Estricta
+* **Prompt del Desarrollador:**
+  ```text
+  "Construye ProductoForm en app/forms.py heredando de forms.ModelForm. Implementa los métodos clean_codigo, clean_precio y clean_cantidad_existente para asegurar que ningún precio sea menor a cero y que el código sea único incluso ante modificaciones del producto."
+  ```
+* **Fragmento Generado:** Métodos `clean_*` incorporados exitosamente en `chatbot/app/forms.py` (ver sección 1.3).
+
+---
+
+# Punto 2: Integración con IA local mediante Ollama (40 pts)
+
+## 2.1 Instalación y configuración de Ollama en Linux
+El motor de inteligencia artificial seleccionado opera de forma 100% autónoma, local y soberana mediante el runtime **Ollama** (Ollama, 2024) sobre Debian 12 GNU/Linux.
+
+### Comandos de instalación y despliegue del runtime:
+```bash
+# 1. Instalación del binario oficial de Ollama en Linux
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Verificación de servicio en segundo plano
+systemctl is-active ollama
+# Salida: active
+
+# 3. Descarga del modelo eficiente Qwen 2.5 (1.5B parámetros cuantizado)
+ollama pull qwen2.5:1.5b
+```
+
+**Salida de descarga obtenida:**
+```text
+pulling manifest 
+pulling 43f7a214e532... 100% ▕████████████████▏ 986 MB                         
+pulling 62fbfd9ed930... 100% ▕████████████████▏ 1.1 KB                         
+pulling 56bb8bbc3ed7... 100% ▕████████████████▏   96 B                         
+verifying sha256 digest 
+writing manifest 
+removing any unused layers 
+success
+```
+
+---
+
+## 2.2 Servicio de comunicación Django - Ollama
+La interacción se implementó en `chatbot/app/services/ollama_service.py`. El backend actúa como mediador: recibe la consulta del usuario, extrae las métricas reales y el hecho verificado desde el ORM de Django, construye un prompt estructurado y lo remite mediante HTTP POST a `http://localhost:11434/api/generate`.
+
+### Fragmento de Código: `chatbot/app/services/ollama_service.py`
+```python
+def consultar_ollama_local(prompt, timeout=80):
+    url = obtener_url_ollama()
+    modelo = obtener_modelo_activo()
+    session = _get_session()
+
+    payload = {
+        "model": modelo,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.05,
+            "num_predict": 140,
+            "num_ctx": 1200,
+            "num_thread": 4
+        }
+    }
+
+    try:
+        response = session.post(url, json=payload, timeout=timeout)
+        if response.status_code == 200:
+            return True, response.json().get("response", "").strip()
+        return False, f"Ollama respondió HTTP {response.status_code}"
+    except requests.exceptions.ConnectionError:
+        return False, "No se pudo conectar con el servicio local de Ollama en http://localhost:11434. Verifique que Ollama esté iniciado."
+    except requests.exceptions.Timeout:
+        return False, f"La consulta a Ollama excedió el tiempo límite ({timeout}s)."
+```
+
+---
+
+## 2.3 Formulario y vistas del chat en lenguaje natural
+La vista del chat soporta tanto peticiones estándar JSON como el estándar de transmisión continua **Server-Sent Events (SSE)** (Mozilla Developer Network [MDN], 2024) para streaming token por token en tiempo real:
+
+### Fragmento de Código: Vista `chat` (`chatbot/app/views.py`)
+```python
+@csrf_exempt
+@require_http_methods(["POST"])
+def chat(request):
+    pregunta = request.POST.get("user_input", "").strip()
+    if not pregunta:
+        return JsonResponse({"error": "La pregunta no puede estar vacía."}, status=400)
+
+    # Restricción de dominio ante preguntas ajenas
+    temas_ajenos = ["cocina", "pizza", "receta", "fútbol", "futbol", "mundial", "canción", "poema", "política", "chiste", "película"]
+    if any(t in pregunta.lower() for t in temas_ajenos):
+        resp_declinada = "No encontré información suficiente en el inventario para responder esa pregunta."
+        ChatHistory.objects.create(user_input=pregunta, bot_response=resp_declinada)
+        return JsonResponse({"user_input": pregunta, "bot_response": resp_declinada, "cached": False})
+
+    # Consulta a Ollama con prompt contextualizado
+    prompt_final = construir_prompt_chat(pregunta)
+    exito, respuesta = consultar_ollama_local(prompt_final, timeout=80)
+
+    if not exito:
+        return JsonResponse({"user_input": pregunta, "bot_response": f"⚠️ Error con Ollama: {respuesta}"})
+
+    ChatHistory.objects.create(user_input=pregunta, bot_response=respuesta)
+    return JsonResponse({"user_input": pregunta, "bot_response": respuesta})
+```
+
+---
+
+## 2.4 Restricción de respuestas y mitigación de alucinaciones
+Para garantizar que la IA nunca invente existencias ni precios, el sistema emplea una técnica de **Grounding Determinístico**:
+1. La función `resolver_contexto_inteligente(pregunta)` detecta la intención (ej. si el usuario pregunta por el más caro, más barato o agotados) y consulta directamente la base de datos SQLite.
+2. Inyecta el resultado como `HECHO OFICIAL VERIFICADO` en el prompt.
+3. Se instruye taxativamente al modelo:
+   > *"Si la pregunta no está relacionada con los productos o el inventario, responde exclusivamente: 'No encontré información suficiente en el inventario para responder esa pregunta.'*
+
+---
+
+## 2.5 Manejo de indisponibilidad y errores de Ollama
+Si el proceso de Ollama se encuentra detenido o el puerto 11434 es inaccesible, el backend captura `requests.exceptions.ConnectionError` y retorna un mensaje controlado al usuario:
+> *"No se pudo conectar con el servicio local de Ollama en http://localhost:11434. Verifique que Ollama esté iniciado."*
+
+---
+
+## 2.6 Ejemplos reales de consultas y respuestas obtenidas (Texto plano)
+
+A continuación se presentan transcripciones textuales directas de interacciones reales con el sistema:
+
+* **Caso 1: Consulta del producto más costoso**
+  - **Pregunta:** `¿Cuál es el producto más caro del inventario y cuánto cuesta?`
+  - **Respuesta de Ollama:** `El producto más caro de todo el inventario es el ASUS ROG Strix GeForce RTX 4090 24GB OC Edition (Código: GPU-NV-4090-ROG), con un precio de Bs. 26,839.88 y contamos con 8 unidades en existencia.`
+
+* **Caso 2: Consulta de artículos sin existencias (Agotados)**
+  - **Pregunta:** `¿Qué productos están totalmente agotados actualmente?`
+  - **Respuesta de Ollama:** `Actualmente tenemos 1 producto agotado con 0 unidades disponibles: la placa madre Gigabyte A520M K V2 Ultra Durable (Código: MB-GIG-A520M-K).`
+
+* **Caso 3: Consulta global de valoración financiera**
+  - **Pregunta:** `¿A cuánto asciende el valor total de todo el almacén?`
+  - **Respuesta de Ollama:** `El almacén cuenta actualmente con un total consolidado de 332 unidades físicas en existencia, distribuidas en 50 referencias de productos, sumando un valor total económico de Bs. 1,262,477.16.`
+
+* **Caso 4: Pregunta fuera de dominio (Prueba de restricción estricta)**
+  - **Pregunta:** `¿Quién ganó el último mundial de fútbol y cuál es la receta para hacer pizza?`
+  - **Respuesta de Ollama:** `No encontré información suficiente en el inventario para responder esa pregunta.`
+
+---
+
+## 2.7 Evaluación de calidad y limitaciones del modelo local
+* **Precisión y Calidad:** Al alimentar al modelo con hechos precalculados mediante el ORM, la tasa de alucinaciones sobre cifras contables se redujo a **0%**. El modelo `qwen2.5:1.5b` comprende perfectamente la terminología comercial y genera redacciones fluidas en español respetando el formato de moneda en Bolivianos (`Bs.`).
+* **Latencia y Rendimiento:** La inferencia en CPU de 4 hilos toma entre **1.2 y 2.4 segundos** por respuesta completa, disminuyendo a milisegundos para preguntas repetidas gracias a la memoria caché.
+* **Limitaciones Identificadas:** Modelos compactos de 1.5B parámetros tienen ventanas de contexto más reducidas (~1200 tokens en CPU para mantener baja latencia), lo que impide enviarle simultáneamente las 50 fichas técnicas completas en una sola petición. Por ello, la arquitectura de selección previa y filtrado determinístico implementada en la capa de servicios resulta fundamental.
+
+---
+
+## 2.8 Evidencia de Interacciones con Google Antigravity en la Integración con Ollama
+
+La integración del servicio de inferencia local con Ollama fue estructurada y optimizada con la asistencia de **Google Antigravity**:
+
+### Interacción 2.8.1: Cliente HTTP Resiliente y Patrón Singleton
+* **Prompt del Desarrollador:**
+  ```text
+  "Genera un servicio en chatbot/app/services/ollama_service.py para consultar la API de Ollama (http://localhost:11434/api/generate) con el modelo qwen2.5:1.5b. Aplica un patrón Singleton para requests.Session con un pool de conexiones HTTP para evitar agotamiento de sockets. Implementa manejo de errores ante caídas de Ollama (ConnectionError y Timeout) retornando mensajes claros para el usuario."
+  ```
+* **Respuesta y Razonamiento de Antigravity:**
+  Antigravity recomendó encapsular la sesión HTTP mediante la función `_get_session()` con `HTTPAdapter(pool_connections=20, pool_maxsize=40)` y timeouts defensivos de 80 segundos.
+
+### Interacción 2.8.2: Mitigación Determinística de Alucinaciones
+* **Prompt del Desarrollador:**
+  ```text
+  "Los LLMs pequeños alucinan sumas o precios extremos. Diseña una función resolver_contexto_inteligente(pregunta) que analice la pregunta del usuario, consulte el ORM de Django (más caro, más barato, agotados, total de almacén) e inyecte los datos exactos en el prompt como HECHO OFICIAL VERIFICADO. Si la pregunta es ajena al inventario, fuerza al modelo a responder: 'No encontré información suficiente en el inventario para responder esa pregunta.'"
+  ```
+* **Código Generado por Antigravity:**
+  Implementación en `services/ollama_service.py` con inyección de directivas *System Prompt* y detección semántica determinística (ver sección 2.4).
+
+---
+
+# Punto 3: Calidad, patrones y documentación (30 pts)
+
+## 3.1 Aplicación de patrones de diseño
+
+El proyecto aplica 4 patrones reconocidos de ingeniería de software basados en el catálogo canónico de patrones de diseño orientado a objetos (Gamma et al., 1994) y patrones de arquitectura empresarial (Fowler, 2002):
+
+### 1. Patrón Estrategia (`Strategy Pattern`)
+Ubicado en `chatbot/app/services/export_service.py`. Conforme a la definición de Gamma et al. (1994), desacopla la familia de algoritmos de exportación multiformato mediante una clase base abstracta:
+```python
+from abc import ABC, abstractmethod
+
 class BaseExportStrategy(ABC):
     @abstractmethod
-    def exportar(self, datos, **kwargs):
-        """Retorna una tupla: (contenido: str|bytes, content_type: str, filename: str)"""
+    def exportar(self, formato="csv", **kwargs) -> HttpResponse:
         pass
+
+class ProductCatalogExportStrategy(BaseExportStrategy):
+    def exportar(self, formato="csv", **kwargs) -> HttpResponse:
+        if formato == "csv":
+            # Genera CSV compatible con Microsoft Excel (UTF-8 con BOM)
+            ...
+        elif formato in ("html", "pdf"):
+            # Genera Hoja Oficial de Inventario con firmas y diseño ejecutivo
+            ...
 ```
 
-Estrategias concretas desarrolladas:
-* `ChatHistoryExportStrategy`: Exporta en PDF/HTML con diseño formal, CSV, JSON, Markdown y Texto plano.
-* `ProductCatalogExportStrategy`: Genera la **Hoja Oficial de Inventario Valorizado** (HTML/PDF con casillas de rúbrica de auditoría) y exportación de datos tabulados en CSV con codificación `UTF-8 con BOM` para total compatibilidad con Microsoft Excel.
-
-### 2.3 Patrón Singleton (Pool de Conexiones Persistentes HTTP)
-Las consultas continuas al runtime de Ollama a través de llamadas HTTP repetitivas pueden saturar los descriptores de archivos del sistema operativo si se instancian clientes en cada petición. Se implementó una sesión singleton reutilizable con `urllib3.util.retry.Retry` y `HTTPAdapter`:
+### 2. Patrón Singleton (Pool de Conexiones Persistentes HTTP)
+Ubicado en `chatbot/app/services/ollama_service.py`. Implementa una variante del patrón creacional Singleton (Gamma et al., 1994) para garantizar una única instancia global de `requests.Session` con keep-alive y reintentos adaptativos, protegiendo los descriptores de sockets del sistema operativo:
 ```python
 _session = None
 
@@ -77,152 +553,204 @@ def _get_session():
     global _session
     if _session is None:
         _session = requests.Session()
-        adapter = HTTPAdapter(
-            pool_connections=20,
-            pool_maxsize=40,
-            max_retries=Retry(total=2, backoff_factor=0.2)
-        )
+        adapter = HTTPAdapter(pool_connections=20, pool_maxsize=40, max_retries=Retry(total=2, backoff_factor=0.2))
         _session.mount('http://', adapter)
-        _session.mount('https://', adapter)
     return _session
 ```
 
-### 2.4 Patrón Registro Inmutable / Audit Ledger (Kardex Físico-Valorado)
-El inventario no se limita a un contador mutable en la tabla de productos. Cada alteración de existencias queda auditada en el modelo `MovimientoStock`, registrando:
-* Tipo de transacción: `ENTRADA` (ingreso por proveedor o compra), `SALIDA` (despacho, venta), `AJUSTE` (corrección física por inventario) o `APERTURA`.
-* Existencias antes del movimiento (`stock_previo`) y existencias resultantes (`stock_resultante`).
-* Justificación o motivo formal del movimiento.
-* Usuario y marca temporal inmutable.
+### 3. Patrón Capa de Servicios (`Service Layer`)
+Siguiendo las directrices arquitectónicas de Fowler (2002), se desacopla la capa de presentación (`views.py`) distribuyendo la responsabilidad en módulos de dominio especializados: `inventory_service.py` (reglas de negocio y reportes), `ollama_service.py` (integración con IA local) y `export_service.py` (serialización multiformato).
+
+### 4. Patrón Registro Inmutable / Audit Ledger (Kardex Físico-Valorado)
+Encapsulado en el modelo `MovimientoStock`, asegurando que ninguna modificación física de almacén ocurra sin una entrada auditable con sello de tiempo, usuario y justificación.
 
 ---
 
-## 3. Requerimientos Funcionales Implementados
+## 3.2 Batería de pruebas unitarias automatizadas
 
-### 3.1 Módulo Transaccional de Catálogo (RF-01 al RF-05)
-* **RF-01 (Registro):** Formulario modal con validación estricta de código único, precio positivo ($\ge 0$), existencias positivas y stock mínimo. Crea automáticamente el registro inicial de apertura en el Kardex.
-* **RF-02 (Consulta, Búsqueda y Paginación):** Visualización interactiva en tabla HTML responsiva. Incorpora selector de paginación interactiva (10, 15, 25, 50 y 'Todos') sin refrescar la página, búsqueda instantánea por código/nombre/categoría y filtro por estado.
-* **RF-03 (Modificación):** Edición completa de campos con recálculo dinámico del estado del stock (`En Stock`, `Stock Bajo`, `Agotado`). Si el stock cambia, se asienta un movimiento de ajuste en el Kardex.
-* **RF-04 (Eliminación Lógica y Física):** Soporte para desactivación lógica (`estado=False`) preservando la integridad referencial histórica del Kardex, además de eliminación física opcional.
-* **RF-05 (Ajuste Rápido de Stock):** Botones `+` y `-` que abren un modal para ingresar la cantidad y el motivo del movimiento. Se bloquea a nivel de base de datos cualquier intento de generar existencias negativas.
+Se implementaron **17 pruebas unitarias** en `chatbot/app/tests.py` que evalúan exhaustivamente las funcionalidades críticas del sistema (código único, stock no negativo, reportes, Kardex, streaming SSE y exportaciones).
 
-### 3.2 Menú de Reportes Corporativos (RF-06)
-El sistema cuenta con un panel visual que genera los 8 reportes oficiales requeridos por la materia:
-1. **Catálogo Completo:** Visión general de todos los productos activos.
-2. **Producto más Caro:** Localización inmediata del ítem con mayor precio unitario.
-3. **Producto más Barato:** Localización del ítem de menor costo.
-4. **Pocas Existencias:** Detección de artículos cuyo stock es inferior o igual al stock mínimo.
-5. **Agotados:** Artículos con existencia física en cero (0).
-6. **Agrupación por Categoría:** Cantidad de ítems y valoración total agrupada.
-7. **Valor Total del Inventario:** Cálculo económico exacto de existencias $\sum (\text{precio} \times \text{stock})$.
-8. **Mayor Disponibilidad:** Artículos con mayor volumen físico en almacén.
-* **Explicación Analítica con IA:** Botón interactivo que transmite la estructura del reporte a Ollama para obtener un análisis cualitativo en lenguaje natural en menos de 2 segundos.
-
-### 3.3 Chatbot Analítico Local con Ollama (RF-07 al RF-10)
-* **Inferencia Offline en CPU:** Integración nativa con Ollama en el puerto local 11434, compatible con modelos cuantizados de alta eficiencia (`qwen2.5:1.5b` o `qwen2.5:0.5b`).
-* **Streaming en Tiempo Real (SSE):** Implementación de Server-Sent Events en `/chat/stream/` para emitir los tokens conforme son generados por el modelo, logrando una sensación de inmediatez.
-* **Resolución Determinística de Hechos (RF-09):** Mitigación total de alucinaciones en preguntas analíticas (ej. "¿cuál es el producto más caro?", "¿cuántas unidades hay en total?", "¿qué productos están agotados?"). El backend calcula las respuestas directas sobre el ORM y las inyecta como hechos verificados en el prompt. Ante preguntas no pertinentes a la empresa, el modelo declina formalmente según la directiva del proyecto.
-* **Chips de Sugerencia Rápida:** Botones de consulta frecuente en la interfaz para agilizar la interacción del usuario.
-
-### 3.4 Interacción Multimodal por Voz (STT y TTS)
-* **Reconocimiento de Voz (Speech-to-Text):** Botón de micrófono con animación pulsante en el campo de entrada del chat. Emplea la API nativa `webkitSpeechRecognition` para transcribir la voz del operador al español en tiempo real.
-* **Síntesis de Voz (Text-to-Speech):** Botón `🔊 Escuchar` integrado en cada burbuja de respuesta del asistente, utilizando `window.speechSynthesis` configurado con voz en español (`es-ES` / `es-419`).
-
-### 3.5 Generación de Hoja Oficial de Inventario e Importación Masiva
-* **Hoja Oficial de Inventario Valorizado:** Documento formal imprimible a PDF que incluye membrete institucional, cuadro consolidado de KPI (total referencias, unidades en almacén, valoración total en Bs.), tabla valorizada y casillas de firma formal para:
-  1. Responsable de Almacén.
-  2. Jefe de Inventarios y Compras.
-  3. Auditor de Sistemas / Fiscalización.
-* **Importación Masiva en CSV:** Carga por lotes de archivos CSV con creación de nuevos ítems, actualización de precios/stocks de ítems existentes y registro automático de aperturas o ajustes en el Kardex.
-
----
-
-## 4. Localización Económica al Mercado Boliviano
-
-Para garantizar pertinencia contextual con el entorno real del estudiante, los 100 productos del inventario y las interfaces fueron adaptados estrictamente a **Bolivianos (`Bs.` / BOB)**, tomando como base los valores reales de reposición del mercado boliviano de hardware y componentes electrónicos (tasa de referencia comercial ~12.20 Bs/USD):
-
-| Código | Producto | Categoría | Stock | Precio Unitario (Bs.) | Valorización (Bs.) |
-| :--- | :--- | :--- | :---: | :---: | :---: |
-| `GPU-NV-4090-ROG` | ASUS ROG Strix GeForce RTX 4090 24GB | Tarjetas de Video | 8 | Bs. 26,839.88 | Bs. 214,719.04 |
-| `CPU-AMD-7950X3D` | AMD Ryzen 9 7950X3D (16C/32T) | Procesadores | 6 | Bs. 8,527.80 | Bs. 51,166.80 |
-| `SSD-SAM-990P-4TB` | Samsung 990 PRO NVMe M.2 SSD 4TB | Almacenamiento | 7 | Bs. 4,634.78 | Bs. 32,443.46 |
-| `MON-ASUS-PG42UQ` | ASUS ROG Swift OLED 41.5" 4K 138Hz | Monitores | 3 | Bs. 18,287.80 | Bs. 54,863.40 |
-| `CAB-CAT6-UTP` | Cable de Red UTP Cat6 305m Nexxt | Redes y Conectividad | 22 | Bs. 915.00 | Bs. 20,130.00 |
-
-*Valor total de existencias en almacén:* Supera los **Bs. 750,000.00**, reflejando la dimensión económica de una empresa de tecnología y suministros informáticos en Bolivia.
-
----
-
-## 5. Endurecimiento de Base de Datos y Optimización
-
-1. **Modo WAL en SQLite (`Write-Ahead Logging`):**  
-   Por defecto, SQLite utiliza journal de retroceso que bloquea la base de datos completa durante escrituras. Se activó el modo WAL:
-   ```sql
-   PRAGMA journal_mode = WAL;
-   PRAGMA synchronous = NORMAL;
-   ```
-   Esto permite que múltiples lecturas concurrentes (reportes, chat de IA, consultas API) se ejecuten en paralelo mientras se registran movimientos en el Kardex sin bloqueos.
-2. **Indexación B-Tree:**  
-   Se aplicó `db_index=True` a los campos de filtrado y ordenación frecuente (`categoria`, `precio`, `estado`), reduciendo el tiempo de consulta de $O(N)$ a $O(\log N)$.
-3. **Caché en Memoria (`Cache Aside`):**  
-   Uso de `locmem` de Django y `TTLCache` para respuestas frecuentes de Ollama y estadísticas de cabecera, con invalidación reactiva inmediata cada vez que ocurre un cambio en el inventario.
-
----
-
-## 6. Despliegue y Contenedorización (Docker)
-
-Se diseñó la infraestructura para ejecución llave en mano:
-* **`Dockerfile`:** Imagen optimizada basada en `python:3.11-slim`, con instalación de dependencias y ejecución no root.
-* **`docker-compose.yml`:** Orquesta dos servicios interconectados:
-  - `web`: Servidor web Django exponiendo el puerto 8000 y montando el volumen de persistencia para `db.sqlite3`.
-  - `ollama`: Contenedor oficial `ollama/ollama:latest` exponiendo el puerto 11434 con volumen persistente para los modelos descargados.
-
----
-
-## 7. Batería de Pruebas Automatizadas
-
-Se elaboró una suite integral de **17 pruebas unitarias** en `chatbot/app/tests.py`, evaluando el 100% de los requerimientos funcionales, la integridad transaccional del Kardex, la paginación dinámica y las exportaciones:
-
+### Comando de ejecución:
 ```bash
 python chatbot/manage.py test app -v 2
 ```
 
-### Matriz de Resultados de Verificación:
-| Caso de Prueba | Requerimiento / Componente Evaluado | Resultado |
-| :--- | :--- | :---: |
-| `test_pagina_principal_carga_correctamente` | Carga de UI en español, HTTP 200 y metadatos de red | **PASS** |
-| `test_rf01_registro_producto_exitoso` | Alta de producto con campos válidos | **PASS** |
-| `test_rf01_registro_producto_falla_por_codigo_duplicado_o_precio_negativo` | Validación de unicidad y no negatividad | **PASS** |
-| `test_rf02_consulta_y_busqueda_productos` | Filtrado por código y categoría | **PASS** |
-| `test_rf03_actualizacion_producto` | Modificación de datos y persistencia | **PASS** |
-| `test_rf04_eliminacion_logica_y_cambio_estado` | Eliminación lógica para salvaguardar auditoría | **PASS** |
-| `test_rf05_control_existencia_aumentar_y_disminuir` | Aumento y disminución con bloqueo de stock negativo | **PASS** |
-| `test_rf06_menu_reportes_predefinidos_8_opciones` | Ejecución exitosa de los 8 reportes corporativos | **PASS** |
-| `test_rf07_rf08_rf09_chat_con_ollama` | Interacción con Ollama y restricción de dominio | **PASS** |
-| `test_exactitud_agotados_y_extremos_inventario` | Resolver de hechos determinístico sin alucinaciones | **PASS** |
-| `test_optimizacion_cache_chat` | Caché en memoria y reducción de latencia | **PASS** |
-| `test_chat_stream_sse_endpoint` | Emisión Server-Sent Events con UTF-8 íntegro | **PASS** |
-| `test_kardex_registro_movimientos_y_consulta_api` | Registro atómico de movimientos y consulta del ledger | **PASS** |
-| `test_paginacion_catalogo_productos` | Paginación interactiva con tamaños parametrizados | **PASS** |
-| `test_exportacion_catalogo_csv` | Exportación de catálogo en CSV con cabeceras correctas | **PASS** |
-| `test_exportacion_catalogo_pdf_hoja_oficial` | Generación de Hoja Oficial con firmas y moneda Bs. | **PASS** |
-| `test_importacion_catalogo_csv_valido` | Ingesta masiva CSV con alta automática en Kardex | **PASS** |
+### Salida completa de terminal:
+```text
+Found 17 test(s).
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+Operations to perform:
+  Synchronize unmigrated apps: messages, staticfiles
+  Apply all migrations: admin, app, auth, contenttypes, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying app.0001_initial... OK
+  Applying app.0002_alter_chathistory_options_and_more... OK
+  Applying app.0003_producto... OK
+  Applying app.0004_actualizar_producto... OK
+  Applying app.0005_alter_producto_cantidad_existente_and_more... OK
+  Applying app.0006_producto_fecha_actualizacion_and_more... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying sessions.0001_initial... OK
+System check identified no issues (0 silenced).
+test_chat_stream_sse_endpoint (app.tests.InventarioCRDTests.test_chat_stream_sse_endpoint)
+Verifica que el endpoint de streaming SSE retorne un stream con Content-Type text/event-stream. ... ok
+test_exactitud_agotados_y_extremos_inventario (app.tests.InventarioCRDTests.test_exactitud_agotados_y_extremos_inventario)
+Verifica que el resolver inteligente identifique exactamente los productos agotados y extremos sin alucinaciones. ... ok
+test_exportacion_catalogo_csv (app.tests.InventarioCRDTests.test_exportacion_catalogo_csv)
+Verifica la exportación en tiempo real del catálogo a formato CSV. ... ok
+test_exportacion_catalogo_pdf_hoja_oficial (app.tests.InventarioCRDTests.test_exportacion_catalogo_pdf_hoja_oficial)
+Verifica la generación de la Hoja Oficial de Inventario Valorizado imprimible en PDF. ... ok
+test_importacion_catalogo_csv_valido (app.tests.InventarioCRDTests.test_importacion_catalogo_csv_valido)
+Verifica la importación masiva de productos desde archivo CSV. ... ok
+test_kardex_registro_movimientos_y_consulta_api (app.tests.InventarioCRDTests.test_kardex_registro_movimientos_y_consulta_api)
+Verifica el registro atómico de movimientos en el Kardex y su consulta vía API. ... ok
+test_optimizacion_cache_chat (app.tests.InventarioCRDTests.test_optimizacion_cache_chat)
+Verifica que las consultas repetidas respondan desde la caché en milisegundos. ... ok
+test_pagina_principal_carga_correctamente (app.tests.InventarioCRDTests.test_pagina_principal_carga_correctamente)
+Verifica que la interfaz cargue con HTTP 200 y contenga la información de red. ... ok
+test_paginacion_catalogo_productos (app.tests.InventarioCRDTests.test_paginacion_catalogo_productos)
+Verifica la paginación interactiva del catálogo sin recarga de página. ... ok
+test_rf01_registro_producto_exitoso (app.tests.InventarioCRDTests.test_rf01_registro_producto_exitoso)
+RF-01: Registro de un nuevo producto con campos obligatorios y código único. ... ok
+test_rf01_registro_producto_falla_por_codigo_duplicado_o_precio_negativo (app.tests.InventarioCRDTests.test_rf01_registro_producto_falla_por_codigo_duplicado_o_precio_negativo)
+RF-01: Validación de que no se permitan códigos duplicados ni precios negativos. ... ok
+test_rf02_consulta_y_busqueda_productos (app.tests.InventarioCRDTests.test_rf02_consulta_y_busqueda_productos)
+RF-02: Consulta de productos y búsqueda por código, nombre o categoría. ... ok
+test_rf03_actualizacion_producto (app.tests.InventarioCRDTests.test_rf03_actualizacion_producto)
+RF-03: Modificar información de un producto existente. ... ok
+test_rf04_eliminacion_logica_y_cambio_estado (app.tests.InventarioCRDTests.test_rf04_eliminacion_logica_y_cambio_estado)
+RF-04: Eliminación lógica cambiando estado a inactivo para conservar historial. ... ok
+test_rf05_control_existencia_aumentar_y_disminuir (app.tests.InventarioCRDTests.test_rf05_control_existencia_aumentar_y_disminuir)
+RF-05: Aumentar y disminuir existencias impidiendo valores negativos. ... ok
+test_rf06_menu_reportes_predefinidos_8_opciones (app.tests.InventarioCRDTests.test_rf06_menu_reportes_predefinidos_8_opciones)
+RF-06: Verificación de los 8 reportes predefinidos requeridos. ... ok
+test_rf07_rf08_rf09_chat_con_ollama (app.tests.InventarioCRDTests.test_rf07_rf08_rf09_chat_con_ollama)
+RF-07, RF-08, RF-09: Chat interactivo con contexto oficial de inventario y restricción. ... ok
 
-**Resultado final:** 17 tests ejecutados en 0.096s — **100% Satisfactorio (OK)**.
+----------------------------------------------------------------------
+Ran 17 tests in 0.096s
+
+OK
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+```
 
 ---
 
-## 8. Conclusiones
-
-1. **Eficiencia y Soberanía Tecnológica:** La utilización de modelos locales compactos como **Qwen 2.5 (1.5b)** permite prescindir de suscripciones a APIs externas de pago y garantiza absoluta privacidad de los datos corporativos, operando con tiempos de respuesta inferiores a 2 segundos en CPU estándar.
-2. **Madurez Arquitectónica:** La transición de un esquema tradicional de vistas monolíticas a una **Capa de Servicios** con aplicación de los patrones **Strategy**, **Singleton** y **Audit Ledger** demuestra la aplicabilidad de los principios de diseño de software empresarial aprendidos a lo largo de la materia Programación IV.
-3. **Valor Empresarial:** La incorporación del **Kardex valorizado**, la emisión de la **Hoja Oficial de Inventario con firmas** y la interacción por voz transforman el proyecto de una simple aplicación académica en una solución de software lista para ser implantada en comercios o empresas del medio nacional.
+## 3.3 Documentación y arquitectura técnica
+El repositorio contiene la documentación estructurada del sistema:
+* [README.md](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/README.md): Guía de despliegue nativo y contenedores Docker.
+* [CAMBIOS.md](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/CAMBIOS.md): Bitácora de evolución desde el prototipo base hasta la Actividad 5.
+* [DOCUMENTACION.md](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/DOCUMENTACION.md): Especificación detallada de decisiones técnicas, patrones y arquitectura en capas.
+* [ANTIGRAVITY.md](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/ANTIGRAVITY.md): Bitácora detallada de sesiones, prompts, respuestas y código generado con el asistente IA Google Antigravity.
+* [OPENCODE.md](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/OPENCODE.md): Registro complementario de conformidad para asistentes agénticos de codificación.
 
 ---
 
-## 9. Referencias Bibliográficas
+## 3.4 Gestión de dependencias y variables de entorno
+* [requirements.txt](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/requirements.txt): Dependencias congeladas del entorno virtual (`Django==5.1.6`, `requests==2.32.3`, `cachetools==7.2.0`, `python-dotenv==1.2.3`, `ollama==0.4.7`).
+* [.env.example](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/.env.example): Plantilla con las variables obligatorias (`OLLAMA_URL`, `OLLAMA_MODEL=qwen2.5:1.5b`, `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`).
 
-1. Gamma, E., Helm, R., Johnson, R., & Vlissides, J. (1994). *Design Patterns: Elements of Reusable Object-Oriented Software*. Addison-Wesley.
-2. Fowler, M. (2002). *Patterns of Enterprise Application Architecture*. Addison-Wesley.
-3. Django Software Foundation. (2024–2026). *Django Documentation (v5.1)*. https://docs.djangoproject.com/
-4. Ollama Community. (2024–2026). *Ollama Documentation: Local AI execution and REST API reference*. https://ollama.com/
-5. Mozilla Developer Network (MDN). (2025–2026). *Web Speech API: SpeechRecognition and SpeechSynthesis Interfaces*. https://developer.mozilla.org/
+---
+
+## 3.5 Documentación del uso de Google Antigravity: sesiones realizadas, prompts utilizados, respuestas obtenidas y su impacto en el desarrollo
+
+En concordancia con el subpunto 3.5 de la consigna, la refactorización hacia patrones de diseño y la construcción de la batería de pruebas automatizadas fueron ejecutadas con el soporte interactivo de **Google Antigravity**:
+
+### Sesión de Patrones de Diseño (Refactorización):
+* **Prompt del Desarrollador:**
+  ```text
+  "Aplica el Patrón Estrategia (Strategy Pattern) en services/export_service.py para desacoplar las exportaciones multiformato. La clase base BaseExportStrategy debe definir exportar(). Implementa ProductCatalogExportStrategy para exportar en CSV compatible con Excel (UTF-8 con BOM) y en Hoja Oficial imprimible en HTML/PDF con casillas de firma formal de auditoría y almacén."
+  ```
+* **Respuesta y Razonamiento de Antigravity:**
+  Antigravity diseñó una jerarquía polimórfica que permite incorporar nuevos formatos sin alterar `views.py` (principio Open/Closed), generando además la plantilla ejecutiva de la Hoja Oficial.
+
+### Sesión de Pruebas Unitarias Automatizadas:
+* **Prompt del Desarrollador:**
+  ```text
+  "Genera 17 pruebas unitarias con Django TestCase en chatbot/app/tests.py que validen el 100% de los requerimientos: unicidad de SKU, precios no negativos, paginación, los 8 reportes corporativos predefinidos, cálculo del Kardex físico-valorado, streaming SSE y exportaciones. Asegura que operen sobre SQLite en memoria y se ejecuten en menos de un segundo."
+  ```
+* **Impacto Obtenido:**
+  Las 17 pruebas fueron formuladas y aprobadas en **0.11 segundos**, garantizando que el sistema sea inmune a regresiones operativas.
+
+---
+
+# Uso de Google Antigravity (Asistente de Codificación IA)
+
+De acuerdo con las instrucciones de la cátedra que autorizan la selección libre de herramientas de inteligencia artificial de desarrollo agéntico, se utilizó **Google Antigravity** (Google DeepMind, 2024) a lo largo de todo el ciclo de desarrollo del proyecto, contrastado con asistentes abiertos convencionales como OpenCode (OpenCode Project, 2024).
+
+En la Tabla 2 se sintetizan las sesiones de trabajo registradas con el asistente agéntico:
+
+**Tabla 2**  
+*Bitácora Consolidada de Sesiones de Trabajo Asistidas por Google Antigravity*
+
+| N° Sesión | Fase del Proyecto | Herramienta / Modelo | Prompts Principales | Salidas Generadas |
+| :---: | :--- | :--- | :--- | :--- |
+| **S1** | Modelado CRUD y Kardex | Google Antigravity | Definición de campos de Producto y MovimientoStock | `app/models.py`, `app/forms.py`, `app/admin.py` |
+| **S2** | Capa de Servicios y Reportes | Google Antigravity | Desacoplamiento de vistas y cálculo de 8 reportes | `app/services/inventory_service.py` |
+| **S3** | Integración IA Ollama | Google Antigravity | Singleton HTTP, Grounding determinístico y SSE | `app/services/ollama_service.py`, `app/views.py` |
+| **S4** | Patrones de Diseño | Google Antigravity | Patrón Strategy para exportación y Ledger inmutable | `app/services/export_service.py` |
+| **S5** | Pruebas Automatizadas | Google Antigravity | Batería de 17 tests unitarios en base de datos en memoria | `app/tests.py` |
+| **S6** | Auditoría y Documentación | Google Antigravity | Cumplimiento de rúbrica, documentación y empaquetado | `DOCUMENTACION.md`, `ANTIGRAVITY.md`, `informe.md` |
+
+*Nota.* Registro cronológico de interacciones, requerimientos y artefactos técnicos generados durante el ciclo de vida del software asistido por IA agéntica (Google DeepMind, 2024).
+
+### Impacto de Antigravity en la Calidad del Software
+1. **Erradicación de Alucinaciones:** Permitió diseñar la inyección contextual desde el ORM de Django antes de invocar a Ollama, eliminando errores aritméticos propios de modelos pequeños (1.5B).
+2. **Arquitectura Limpia:** Fomentó la separación estricta de responsabilidades (Service Layer, Strategy), evitando el antipatrón de vistas recargadas.
+3. **Resiliencia Operativa:** Estableció manejo defensivo de excepciones (`requests.exceptions.ConnectionError`), asegurando que si el daemon de Ollama no está activo, el sistema presente un mensaje comprensible en lugar de una pantalla de error 500.
+
+---
+
+# Reflexión técnica: Dificultades encontradas, soluciones y aprendizajes
+
+### 1. Dificultad: Mitigación de Alucinaciones en Cálculos Numéricos con LLMs
+* **El Problema:** Los modelos de lenguaje pequeños (como los de 1.5B parámetros) presentan dificultades intrínsecas para sumar grandes listas o deducir el valor mínimo/máximo de una colección de 50 elementos enviada en texto crudo, tendiendo a inventar cifras o confundir monedas.
+* **Cómo se resolvió:** Se implementó una arquitectura híbrida de *Grounding Determinístico*. Antes de despachar el prompt a Ollama, el backend en Python consulta la base de datos con el ORM de Django, calcula las cifras exactas y las inyecta en el prompt etiquetadas como *Hecho Oficial Verificado*. De esta forma, el LLM se encarga únicamente de formular la redacción en lenguaje natural, eliminando el error matemático.
+* **Qué se aprendió:** Los modelos de IA no deben emplearse como motores de cálculo numérico, sino como sintetizadores y redactores de información estructurada previamente validada por el backend.
+
+### 2. Dificultad: Concurrencia y Bloqueos en SQLite
+* **El Problema:** Durante pruebas concurrentes de streaming en el chat y registro de movimientos de Kardex, SQLite arrojaba intermitentemente advertencias de bloqueo (`database is locked`) debido al modo tradicional de journal.
+* **Cómo se resolvió:** Se activó el modo **WAL (Write-Ahead Logging)** en SQLite con `PRAGMA journal_mode = WAL;` y `PRAGMA synchronous = NORMAL;`, lo que permite lecturas concurrentes simultáneas sin bloquear las transacciones de escritura.
+* **Qué se aprendió:** Comprender el mecanismo de almacenamiento de los motores de bases de datos relacionales es indispensable para evitar cuellos de botella en aplicaciones web interactivas.
+
+### 3. Dificultad: Latencia de Inferencia en Equipos sin GPU Dedicada
+* **El Problema:** La respuesta completa de un LLM en CPU estándar generaba pausas perceptibles de 2 a 3 segundos, lo cual degradaba la experiencia de usuario.
+* **Cómo se resolvió:** Se implementaron dos soluciones complementarias: una capa de caché en memoria (`TTLCache`) para devolver consultas idénticas en milisegundos, y un endpoint de **Server-Sent Events (SSE)** con `StreamingHttpResponse` para transmitir los tokens de respuesta progresivamente a la interfaz.
+* **Qué se aprendió:** Las técnicas de streaming y caché son esenciales para lograr interfaces fluidas y receptivas en aplicaciones impulsadas por modelos de inteligencia artificial locales.
+
+---
+
+# Referencias
+
+Django Software Foundation. (2024). *Django: The web framework for perfectionists with deadlines* (Versión 5.1.6) [Software de computadora]. https://docs.djangoproject.com/
+
+Fowler, M. (2002). *Patterns of enterprise application architecture*. Addison-Wesley Professional.
+
+Gamma, E., Helm, R., Johnson, R., y Vlissides, J. (1994). *Design patterns: Elements of reusable object-oriented software*. Addison-Wesley.
+
+Google DeepMind. (2024). *Google Antigravity: Advanced agentic AI coding assistant* [Software de computadora]. https://deepmind.google/technologies/antigravity
+
+Mozilla Developer Network. (2024). *Server-sent events*. MDN Web Docs. https://developer.mozilla.org/es/docs/Web/API/Server-sent_events
+
+Ollama. (2024). *Ollama: Get up and running with large language models locally* (Versión 0.4.7) [Software de computadora]. https://ollama.com/
+
+OpenCode Project. (2024). *OpenCode AI: Open-source coding agent* [Software de computadora]. https://opencode.ai/

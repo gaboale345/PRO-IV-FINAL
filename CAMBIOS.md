@@ -1,139 +1,61 @@
 # Registro de Modificaciones del Proyecto (CAMBIOS.md)
 
-**Proyecto:** ChatBot Web con Django y Ollama  
+**Asignatura:** Programación IV  
+**Actividad:** Actividad 5 – Desarrollo de un sistema de información genérico con CRUD e integración de IA local mediante Ollama  
 **Estudiante:** Gabriel Alcón  
-**Materia:** Programación IV  
-**Actividad:** Actividad 4 – Implementación, localización y extensión de un proyecto open source con Ollama  
-**Repositorio Base Original:** [Anjum799/ChatBot](https://github.com/Anjum799/ChatBot) (GitHub, 2024–2025)
+**Repositorio Base:** Evolución desde la plantilla base [Anjum799/ChatBot](https://github.com/Anjum799/ChatBot)  
+**Fecha:** Septiembre de 2026  
 
 ---
 
-## 1. Resumen de Modificaciones
+## 1. Resumen de Transformaciones Principales
 
-El proyecto original consistía en una aplicación web elemental en Django que integraba Ollama mediante LangChain con el modelo `gemma:2b`. La interfaz gráfica original era básica, estaba completamente en inglés y solo permitía enviar mensajes y visualizar el historial sobreescribiendo el contenedor principal.
+El proyecto original consistía en un chatbot simple en Django con respuestas directas en inglés sin soporte para entidades de negocio ni trazabilidad. Para la **Actividad 5**, el proyecto se transformó en un **Sistema Empresarial de Gestión de Inventario con Trazabilidad Kardex, 8 Reportes Corporativos y Asistente IA Offline con Ollama**:
 
-En esta entrega se realizaron las siguientes transformaciones integrales:
-1. **Localización completa al español:** Traducción al 100% de la interfaz visual, etiquetas, mensajes de error, placeholders y documentación técnica.
-2. **Ajuste del System Prompt en Ollama:** Modificación de las directivas del modelo para garantizar respuestas coherentes, gramaticalmente correctas y exclusivamente en idioma español.
-3. **Optimización de Modelo Local:** Adaptación para modelos ultraligeros y eficientes en CPU (`qwen2.5:0.5b` y `qwen2.5:1.5b`), permitiendo tiempos de inferencia rápidos sin requerir GPU dedicada.
-4. **Funcionalidad Adicional 1 – Sistema de Exportación Multiformato del Historial:** Descarga en un clic de las conversaciones en formatos Markdown (`.md`), Texto plano (`.txt`) o JSON estructurado (`.json`).
-5. **Funcionalidad Adicional 2 – Selector Dinámico de Personalidades y Plantillas de Prompts:** Módulo que permite al usuario alternar en tiempo real entre distintos roles (Asistente General, Programador Python, Tutor Académico y Redactor Creativo), transformando el prompt del sistema enviado a Ollama.
-6. **Funcionalidad Adicional 3 – Gestión y Vaciado de Base de Datos:** Endpoint y control interactivo con confirmación para limpiar la base de datos SQLite.
-7. **Rediseño Visual Premium (Glassmorphism):** Interfaz moderna con animaciones CSS, panel lateral deslizable para el historial, burbujas de chat diferenciadas e indicador visual de escritura.
-8. **Suite de Pruebas Automatizadas:** Creación de pruebas unitarias en Django (`tests.py`) para validar el 100% de los endpoints y asegurar que no existan regresiones.
+1. **Implementación de la Entidad de Gestión (`Producto`):**
+   - Definición de más de 10 campos de datos (`codigo`, `nombre`, `descripcion`, `categoria`, `precio`, `cantidad_existente`, `stock_minimo`, `estado`, `marca`, `especificaciones`, `destacado`).
+   - Validaciones estrictas en [forms.py](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/chatbot/app/forms.py) para unicidad de código, precios no negativos ($\ge 0$) y control de existencias sin stock negativo.
+   - Panel de administración personalizado en [admin.py](file:///home/gabriel/Downloads/PRO-IV-FINAL-main/chatbot/app/admin.py) con filtros, búsqueda y campos editables en línea.
+
+2. **Módulo de Trazabilidad Contable e Inmutable (`Kardex Físico-Valorado`):**
+   - Creación del modelo `MovimientoStock` para auditar cada entrada, salida o ajuste en el almacén.
+   - Apertura automática de registro en Kardex ante la creación o importación masiva de productos.
+
+3. **Capa de Servicios y Patrones de Diseño:**
+   - Desacoplamiento de vistas monolíticas hacia `chatbot/app/services/`:
+     - `inventory_service.py`: Gestión de catálogo, paginación, filtros y los 8 reportes corporativos.
+     - `ollama_service.py`: Conexión Singleton persistente con Ollama, resolución determinística de hechos y mitigación de alucinaciones.
+     - `export_service.py`: Patrón Strategy para exportación multiformato (CSV, HTML/PDF Hoja Oficial de Inventario con firmas, JSON, Markdown).
+
+4. **Menú de 8 Reportes Predefinidos:**
+   - Implementación de reportes analíticos con resumen cuantitativo y opción de análisis explicativo generado por Ollama.
+
+5. **Chatbot Analítico Offline con Restricción de Respuestas:**
+   - Inferencia local mediante `qwen2.5:1.5b` sin conexión a internet ni consumo de APIs de pago.
+   - Streaming Server-Sent Events (SSE) en tiempo real.
+   - Reglas estrictas: Si la consulta no pertenece al inventario o carece de datos suficientes, declina formalmente responder.
+   - Manejo robusto de errores si Ollama no está en ejecución.
+
+6. **Batería de Pruebas Unitarias Automatizadas:**
+   - Creación de 17 pruebas unitarias en `chatbot/app/tests.py` que cubren el 100% de los requerimientos funcionales y aprueban con éxito.
 
 ---
 
 ## 2. Tabla de Archivos Modificados y Creados
 
-| Archivo | Estado | Descripción del Cambio |
+| Archivo | Tipo | Descripción de la Modificación |
 | :--- | :---: | :--- |
-| `chatbot/app/views.py` | **Modificado** | Se implementó el diccionario de plantillas de prompts por rol (`PLANTILLAS_ROLES`), la selección dinámica de roles en `chat()`, el endpoint de exportación multiformato `export_history()`, el endpoint de vaciado `clear_history()` y las respuestas en español. |
-| `chatbot/app/urls.py` | **Modificado** | Se registraron las nuevas rutas `/export/` y `/clear-history/`. |
-| `chatbot/app/templates/index.html` | **Modificado** | Rediseño integral con estilo Glassmorphism, traducción de todos los textos al español, incorporación del selector de roles en el encabezado, botón de exportación, panel lateral de historial y notificaciones tipo toast. |
-| `chatbot/app/tests.py` | **Modificado** | Implementación de 7 pruebas unitarias automatizadas que evalúan carga en español, chat con roles, exportación en Markdown/TXT/JSON y vaciado de BD. |
-| `README.md` | **Modificado** | Documentación técnica en español con instrucciones detalladas de instalación, configuración del modelo Ollama, ejecución y pruebas. |
-| `requirements.txt` | **Modificado / Generado** | Generado automáticamente con `pip freeze` dentro del entorno virtual con todas las dependencias exactas. |
-| `iniciar_servidor.sh` | **Creado** | Script Bash para arranque automático del servidor Django en todas las interfaces de red (`0.0.0.0:8000`). |
-| `CAMBIOS.md` | **Creado** | Este documento detallando los cambios realizados. |
-| `informe.md` | **Creado** | Informe académico completo de la actividad con justificación, comandos, capturas y reflexiones. |
-
----
-
-## 3. Detalle de Localización al Español (Punto 2)
-
-### A. Interfaz de Usuario (UI)
-- **Título:** De *"ChatBot"* a *"Asistente Virtual IA"*.
-- **Placeholders:** De *"Type your message..."* a *"Escribe tu mensaje en español aquí..."*.
-- **Botones y Acciones:**
-  - *"Send"* $\rightarrow$ Botón estilizado *"Enviar"* con tecla Enter interactiva.
-  - *"View History"* $\rightarrow$ Panel lateral *"Historial"*.
-  - Agregado de *"Limpiar"* y *"Exportar"*.
-- **Indicadores de Estado:** Agregado de indicador animado *"En línea"* y estado de escritura animado (*typing indicator*).
-
-### B. Plantilla del Sistema (Prompt de Ollama)
-**Código Original (Inglés):**
-```python
-template = '''
-answer the question below
-
-here is the conversation history:{context}
-
-Question:{question}
-
-Answer:
-'''
-```
-
-**Código Modificado (Español y Modular):**
-```python
-PLANTILLAS_ROLES = {
-    "general": """Eres un asistente virtual conciso, útil y amable.
-Responde siempre en español de forma directa, breve y clara (máximo 2 a 3 oraciones).
-
-Historial:
-{context}
-
-Pregunta: {question}
-Respuesta:""",
-...
-}
-```
-
----
-
-## 4. Detalle de las Nuevas Funcionalidades (Punto 3)
-
-### Funcionalidad 1: Exportación Multiformato del Historial
-- **Archivos involucrados:** `chatbot/app/views.py`, `chatbot/app/urls.py`, `chatbot/app/templates/index.html`.
-- **Qué hace:** Permite al usuario descargar en un solo clic todo el historial de interacciones almacenado en SQLite.
-- **Formatos soportados:**
-  - **Markdown (`.md`):** Formato estructurado con encabezados, citas de bloque y marcas de tiempo, ideal para documentación o GitHub.
-  - **Texto Plano (`.txt`):** Formato universal legible en cualquier editor.
-  - **JSON (`.json`):** Formato estructurado para interoperabilidad con otras aplicaciones.
-- **Implementación técnica:** Vista `export_history(request)` que consulta `ChatHistory.objects.all().order_by("timestamp")` y devuelve un `HttpResponse` con cabecera `Content-Disposition: attachment; filename="..."`.
-
-### Funcionalidad 2: Selector Dinámico de Personalidades y Plantillas de Prompts
-- **Archivos involucrados:** `chatbot/app/views.py`, `chatbot/app/templates/index.html`.
-- **Qué hace:** Permite modificar en tiempo de ejecución el rol y tono con el que Ollama genera sus respuestas.
-- **Roles integrados:**
-  1. 🤖 **Asistente General:** Respuestas directas, concisas y amables en español.
-  2. 💻 **Programador Python:** Proporciona soluciones técnicas, arquitectura y código limpio comentado.
-  3. 🎓 **Tutor Académico:** Explica paso a paso con analogías didácticas y pedagogía universitaria.
-  4. ✍️ **Redactor Creativo:** Redacción fluida, elocuente y literaria.
-- **Implementación técnica:** Parámetro `rol` enviado mediante POST desde JavaScript. La función `obtener_cadena(rol)` instancia la plantilla de LangChain correspondiente antes de invocar a Ollama.
-
-### Funcionalidad Extra: Vaciado Seguro de la Base de Datos
-- **Endpoint:** `/clear-history/` (método POST con validación CSRF).
-- **Qué hace:** Elimina los registros previos de SQLite mediante `ChatHistory.objects.all().delete()` tras confirmación interactiva del usuario.
-
----
-
-## 5. Comandos de Instalación y Dependencias
-
-Para desplegar y ejecutar las modificaciones en Debian 12 / Linux:
-
-```bash
-# 1. Clonar o acceder al proyecto
-cd proyecto/
-
-# 2. Crear y activar entorno virtual con Python 3.11
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 3. Instalar dependencias exactas
-pip install -r requirements.txt
-
-# 4. Asegurar que Ollama esté activo y descargar el modelo
-systemctl is-active ollama
-ollama pull qwen2.5:0.5b
-
-# 5. Aplicar migraciones de la base de datos
-python chatbot/manage.py migrate
-
-# 6. Ejecutar pruebas unitarias de validación
-python chatbot/manage.py test app
-
-# 7. Iniciar el servidor
-python chatbot/manage.py runserver 0.0.0.0:8000
-```
+| `chatbot/app/models.py` | **Modificado** | Modelos `Producto`, `MovimientoStock` (Kardex) y `ChatHistory` con índices de base de datos. |
+| `chatbot/app/admin.py` | **Modificado** | Configuración personalizada de `ProductoAdmin` y `ChatHistoryAdmin`. |
+| `chatbot/app/forms.py` | **Creado** | Formularios `ProductoForm` y `AjusteStockForm` con validación de no negatividad y unicidad. |
+| `chatbot/app/views.py` | **Modificado** | Endpoints para CRUD completo, control de existencias, Kardex, 8 reportes, chat con streaming SSE y exportación. |
+| `chatbot/app/urls.py` | **Modificado** | Enrutamiento de endpoints API y vistas del sistema. |
+| `chatbot/app/services/inventory_service.py` | **Creado** | Lógica de negocio de inventario, paginación, 8 reportes corporativos y Kardex. |
+| `chatbot/app/services/ollama_service.py` | **Creado** | Integración con Ollama, patrón Singleton HTTP, resolución de hechos y caché TTL. |
+| `chatbot/app/services/export_service.py` | **Creado** | Patrón Strategy para exportar historial y catálogo (incluyendo Hoja Oficial imprimible en PDF con firmas). |
+| `chatbot/app/templates/index.html` | **Modificado** | Interfaz de usuario interactiva moderna con catálogo paginado, modales de CRUD y Kardex, panel de 8 reportes y chat SSE con voz (STT/TTS). |
+| `chatbot/app/tests.py` | **Modificado** | 17 pruebas unitarias exhaustivas para CRUD, reportes, Kardex, Ollama y exportaciones. |
+| `chatbot/poblar_inventario.py` | **Modificado** | Catálogo curado de 50 productos tecnológicos en Bolivianos (`Bs.`) con apertura en Kardex. |
+| `requirements.txt` / `.env.example` | **Creados / Actualizados** | Dependencias congeladas y plantilla de variables de entorno seguras. |
+| `informe.md` / `informe.pdf` | **Creados** | Informe técnico académico formal según estructura y rúbrica de la Actividad 5. |
+| `DOCUMENTACION.md` | **Creado** | Documento complementario de decisiones técnicas y arquitectura. |
